@@ -1,0 +1,13 @@
+{
+  "itemGroup.cci_world": "Example Mod Tab",
+  "block.cci_world.example_block": "Example Block",
+  "item.cci_world.example_item": "Example Item",
+
+  "cci_world.configuration.title": "cci-world vein manipulation Configs",
+  "cci_world.configuration.section.cci_world.common.toml": "cci-world vein manipulation Configs",
+  "cci_world.configuration.section.cci_world.common.toml.title": "cci-world vein manipulation Configs",
+  "cci_world.configuration.items": "Item List",
+  "cci_world.configuration.logDirtBlock": "Log Dirt Block",
+  "cci_world.configuration.magicNumberIntroduction": "Magic Number Text",
+  "cci_world.configuration.magicNumber": "Magic Number"
+}
