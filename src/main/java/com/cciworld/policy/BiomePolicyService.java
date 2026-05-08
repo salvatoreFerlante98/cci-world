@@ -43,7 +43,6 @@ final class BiomePolicyService {
         int cx = chunk.getPos().x;
         int cz = chunk.getPos().z;
 
-        // Sample biome at the horizontal center of the chunk at configured Y
         int bx = chunk.getPos().getMinBlockX() + 8;
         int bz = chunk.getPos().getMinBlockZ() + 8;
         int by = CCIWorldConfig.BIOME_SAMPLE_Y.get();
@@ -52,11 +51,13 @@ final class BiomePolicyService {
         Optional<ResourceKey<Biome>> biomeKey = biomeHolder.unwrapKey();
         if (biomeKey.isEmpty()) {
             return new PolicyResult(PolicyResult.Reason.BIOME_UNKNOWN, PolicyResult.PolicyType.NONE,
-                bandName, bandMin, bandMax, null, null, currentId, null, distChunks, cx, cz);
+                bandName, bandMin, bandMax, null, null, currentId, null, distChunks, cx, cz,
+                null, 0.0, 0.0, false,
+                0, 0, null, 0.0, false, null, null,
+                false, 0.0, null, 0);
         }
         ResourceLocation biomeId = biomeKey.get().location();
 
-        // Find a biome rule whose source matches the current recipe
         List<BiomePolicyRule> rules = CCIWorldConfig.parseBiomeRules();
         BiomePolicyRule matched = null;
         for (BiomePolicyRule rule : rules) {
@@ -71,23 +72,30 @@ final class BiomePolicyService {
                 ? PolicyResult.Reason.NO_MATCHING_BAND
                 : PolicyResult.Reason.NO_MATCHING_RULE;
             return new PolicyResult(reason, PolicyResult.PolicyType.NONE,
-                bandName, bandMin, bandMax, biomeId, null, currentId, null, distChunks, cx, cz);
+                bandName, bandMin, bandMax, biomeId, null, currentId, null, distChunks, cx, cz,
+                null, 0.0, 0.0, false,
+                0, 0, null, 0.0, false, null, null,
+                false, 0.0, null, 0);
         }
 
-        // Validate allowed biomes against the live biome registry
         Registry<Biome> biomeRegistry = level.registryAccess().registryOrThrow(Registries.BIOME);
         Set<ResourceLocation> validAllowed = validateAllowedBiomes(matched, biomeRegistry);
 
         if (validAllowed.contains(biomeId)) {
             return new PolicyResult(PolicyResult.Reason.BIOME_ALLOWED, PolicyResult.PolicyType.BIOME,
-                bandName, bandMin, bandMax, biomeId, matched.name(), currentId, null, distChunks, cx, cz);
+                bandName, bandMin, bandMax, biomeId, matched.name(), currentId, null, distChunks, cx, cz,
+                null, 0.0, 0.0, false,
+                0, 0, null, 0.0, false, null, null,
+                false, 0.0, null, 0);
         }
 
-        // Biome not in allowed list — replacement applies
         ResourceLocation targetId = matched.replacementRecipe();
         if (!COEVeinWriter.veinExists(level.getServer().getRecipeManager(), targetId)) {
             return new PolicyResult(PolicyResult.Reason.BIOME_RULE_TARGET_MISSING, PolicyResult.PolicyType.BIOME,
-                bandName, bandMin, bandMax, biomeId, matched.name(), currentId, targetId, distChunks, cx, cz);
+                bandName, bandMin, bandMax, biomeId, matched.name(), currentId, targetId, distChunks, cx, cz,
+                null, 0.0, 0.0, false,
+                0, 0, null, 0.0, false, null, null,
+                false, 0.0, null, 0);
         }
 
         if (doApply) {
@@ -95,7 +103,10 @@ final class BiomePolicyService {
         }
 
         return new PolicyResult(PolicyResult.Reason.BIOME_NOT_ALLOWED_APPLIED, PolicyResult.PolicyType.BIOME,
-            bandName, bandMin, bandMax, biomeId, matched.name(), currentId, targetId, distChunks, cx, cz);
+            bandName, bandMin, bandMax, biomeId, matched.name(), currentId, targetId, distChunks, cx, cz,
+            null, 0.0, 0.0, false,
+            0, 0, null, 0.0, false, null, null,
+            false, 0.0, null, 0);
     }
 
     private static Set<ResourceLocation> validateAllowedBiomes(BiomePolicyRule rule, Registry<Biome> registry) {
