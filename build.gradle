@@ -114,6 +114,9 @@ neoForge {
 // "optional", meaning it will not be pulled by dependents of this mod.
 configurations {
     runtimeClasspath.extendsFrom localRuntime
+    // integrationRuntime is extended into runtimeClasspath only when -PcciIntegration=true.
+    // It is never a compile dependency and never published.
+    integrationRuntime
 }
 
 dependencies {
@@ -125,6 +128,52 @@ dependencies {
     // Create 6.0.x bundles Flywheel and Registrate, so no additional JARs needed.
     localRuntime files("$modpackMods/create-1.21.1-6.0.10.jar")
     localRuntime files("$modpackMods/createoreexcavation-1.21-1.6.8.jar")
+}
+
+// -----------------------------------------------------------------------
+// Optional integration runtime — activate with: ./gradlew runClient -PcciIntegration=true
+//
+// Adds cci_radar + JourneyMap + JMI as runtime-only jars so they load alongside
+// cci_world in the dev client. The cci_world compile classpath is NOT affected:
+// no cci_radar or JourneyMap classes are imported by cci_world.
+//
+// cci_radar jar resolution order:
+//   1. ../cci-radar/build/libs/cci_radar-*.jar  (sibling project build output)
+//   2. libs/integration/cci_radar-*.jar         (manual drop-in folder)
+// -----------------------------------------------------------------------
+if (project.hasProperty('cciIntegration')) {
+    configurations.runtimeClasspath.extendsFrom configurations.integrationRuntime
+
+    def modpackMods = "C:/Users/sferl/curseforge/minecraft/Instances/Create Aero-Industrial Expedition/mods"
+
+    // JourneyMap full mod + JMI — loaded from the local modpack install
+    dependencies {
+        integrationRuntime files("$modpackMods/journeymap-neoforge-1.21.1-6.0.0-beta.66.jar")
+        integrationRuntime files("$modpackMods/jmi-neoforge-1.21.1-1.9.jar")
+    }
+
+    // cci_radar: scan sibling project build output first, then libs/integration/ drop-in folder
+    def radarJar = null
+    for (dir in [file('../cci-radar/build/libs'), file('libs/integration')]) {
+        if (dir.isDirectory()) {
+            def jars = fileTree(dir: dir, includes: ['cci_radar-*.jar'], excludes: ['*-sources.jar']).files.toSorted()
+            if (!jars.isEmpty()) {
+                radarJar = jars.last()
+                break
+            }
+        }
+    }
+
+    if (radarJar != null) {
+        logger.lifecycle("[CCI World] integration: loading cci_radar from ${radarJar}")
+        dependencies {
+            integrationRuntime files(radarJar)
+        }
+    } else {
+        logger.warn("[CCI World] integration: cci_radar jar not found — build it first:")
+        logger.warn("  cd ../cci-radar && ./gradlew clean build")
+        logger.warn("  or drop cci_radar-*.jar into libs/integration/")
+    }
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

@@ -38,3 +38,6 @@ run/
 **/src/generated/**/.cache/
 repo/
 !**/src/**/repo/
+
+### Integration test jars (drop cci_radar-*.jar here for local dev; never commit) ###
+libs/integration/*.jar
