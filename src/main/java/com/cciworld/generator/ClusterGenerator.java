@@ -131,7 +131,7 @@ public final class ClusterGenerator {
         return Math.floorDiv(chunkCoord, cellSize);
     }
 
-    /** Pure decision routine. Reads spawn/seed/biome but does NOT write OreData. */
+    /** Pure decision routine. Reads spawn/seed/biome but does NOT write OreData. v0.8: applies biome rules. */
     public static ClusterDecision decide(ServerLevel level, LevelChunk chunk) {
         int cx = chunk.getPos().x;
         int cz = chunk.getPos().z;
@@ -140,20 +140,29 @@ public final class ClusterGenerator {
         int chunkCenterX = (cx << 4) + 8;
         int chunkCenterZ = (cz << 4) + 8;
 
-        // Biome at chunk center (informational only, no biome logic in v0.5.1)
         int sampleY = CCIWorldConfig.BIOME_SAMPLE_Y.get();
         Holder<Biome> biomeHolder = level.getBiome(new BlockPos(chunkCenterX, sampleY, chunkCenterZ));
         ResourceLocation biomeId = biomeHolder.unwrapKey().map(k -> k.location()).orElse(null);
 
-        return decidePure(level.getSeed(), spawn.getX(), spawn.getZ(), cx, cz, biomeId);
+        return decidePure(level.getSeed(), spawn.getX(), spawn.getZ(), cx, cz, biomeId, biomeHolder);
     }
 
     /**
-     * Pure, read-only decision. No ServerLevel / LevelChunk required, no biome
-     * sampling, no I/O. Used by {@code /cci_world simulate_distribution}.
+     * Pure, read-only decision without a biome holder (used by simulation).
+     * Biome rules are NOT evaluated; the resulting decision has biomeEvaluated=false.
      */
     public static ClusterDecision decidePure(long worldSeed, int spawnX, int spawnZ,
                                              int cx, int cz, ResourceLocation biomeId) {
+        return decidePure(worldSeed, spawnX, spawnZ, cx, cz, biomeId, null);
+    }
+
+    /**
+     * Pure, read-only decision. {@code biomeHolder} may be null (simulation):
+     * in that case biome rules are skipped and biomeEvaluated=false.
+     */
+    public static ClusterDecision decidePure(long worldSeed, int spawnX, int spawnZ,
+                                             int cx, int cz, ResourceLocation biomeId,
+                                             Holder<Biome> biomeHolder) {
         int chunkCenterX = (cx << 4) + 8;
         int chunkCenterZ = (cz << 4) + 8;
         long ddx = chunkCenterX - spawnX;
@@ -173,7 +182,8 @@ public final class ClusterGenerator {
             return new ClusterDecision(cx, cz, distance, biomeId,
                 cellX, cellZ, 0, 0, 0, 0,
                 null, "no_vein_cell_roll", cellHash, rollNoVein,
-                rollNoVein, 0.0, 0, 0, false, "");
+                rollNoVein, 0.0, 0, 0, false, "",
+                false, true, "biome_not_evaluated", java.util.List.of(), java.util.List.of(), "");
         }
 
         // Cluster center: pick a (blockX,blockZ) deterministically inside the cell.
@@ -216,7 +226,8 @@ public final class ClusterGenerator {
             return new ClusterDecision(cx, cz, distance, biomeId,
                 cellX, cellZ, centerX, centerZ, 0, distFromCenter,
                 null, "out_of_all_rings", cellHash, rollNoVein,
-                rollNoVein, 0.0, 0, emptyWeight, false, emptyBand);
+                rollNoVein, 0.0, 0, emptyWeight, false, emptyBand,
+                false, true, "biome_not_evaluated", java.util.List.of(), java.util.List.of(), "");
         }
 
         long pickHash = splitmix(worldSeed ^ SALT_PICK, cellX, cellZ);
@@ -229,7 +240,8 @@ public final class ClusterGenerator {
             return new ClusterDecision(cx, cz, distance, biomeId,
                 cellX, cellZ, centerX, centerZ, 0, distFromCenter,
                 null, "weighted_empty:" + emptyBand, cellHash, rollPick,
-                rollNoVein, rollPick, totalWeight, emptyWeight, true, emptyBand);
+                rollNoVein, rollPick, totalWeight, emptyWeight, true, emptyBand,
+                false, true, "biome_not_evaluated", java.util.List.of(), java.util.List.of(), "");
         }
 
         if (candidates.isEmpty()) {
@@ -238,7 +250,8 @@ public final class ClusterGenerator {
             return new ClusterDecision(cx, cz, distance, biomeId,
                 cellX, cellZ, centerX, centerZ, 0, distFromCenter,
                 null, "out_of_all_rings", cellHash, rollNoVein,
-                rollNoVein, rollPick, totalWeight, emptyWeight, false, emptyBand);
+                rollNoVein, rollPick, totalWeight, emptyWeight, false, emptyBand,
+                false, true, "biome_not_evaluated", java.util.List.of(), java.util.List.of(), "");
         }
 
         int acc = emptyWeight;
@@ -261,13 +274,25 @@ public final class ClusterGenerator {
             return new ClusterDecision(cx, cz, distance, biomeId,
                 cellX, cellZ, centerX, centerZ, radius, distFromCenter,
                 null, "outside_cluster_radius:" + chosen.alias(), cellHash, rollPick,
-                rollNoVein, rollPick, totalWeight, emptyWeight, false, emptyBand);
+                rollNoVein, rollPick, totalWeight, emptyWeight, false, emptyBand,
+                false, true, "biome_not_evaluated", java.util.List.of(), java.util.List.of(), chosen.alias());
+        }
+
+        // v0.8 — biome rules: evaluate only if a Holder<Biome> is available.
+        BiomeRules.Result br = BiomeRules.evaluate(biomeHolder, chosen.alias());
+        if (br.evaluated() && !br.allowed()) {
+            return new ClusterDecision(cx, cz, distance, biomeId,
+                cellX, cellZ, centerX, centerZ, radius, distFromCenter,
+                null, br.reason(), cellHash, rollPick,
+                rollNoVein, rollPick, totalWeight, emptyWeight, false, emptyBand,
+                true, false, br.reason(), br.matchedAllowed(), br.matchedDenied(), chosen.alias());
         }
 
         return new ClusterDecision(cx, cz, distance, biomeId,
             cellX, cellZ, centerX, centerZ, radius, distFromCenter,
             chosen.recipeId(), "in_cluster:" + chosen.alias(), cellHash, rollPick,
-            rollNoVein, rollPick, totalWeight, emptyWeight, false, emptyBand);
+            rollNoVein, rollPick, totalWeight, emptyWeight, false, emptyBand,
+            br.evaluated(), br.allowed(), br.reason(), br.matchedAllowed(), br.matchedDenied(), chosen.alias());
     }
 
     // -- deterministic hashing -----------------------------------------------

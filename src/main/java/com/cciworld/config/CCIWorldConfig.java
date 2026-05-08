@@ -58,16 +58,28 @@ public final class CCIWorldConfig {
     // Per-resource ring config (min/max distance in blocks, weight, radius range in blocks)
     public static final ModConfigSpec.IntValue GEN_COAL_MIN, GEN_COAL_MAX, GEN_COAL_WEIGHT, GEN_COAL_RMIN, GEN_COAL_RMAX;
     public static final ModConfigSpec.LongValue GEN_COAL_UNITS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> GEN_COAL_ALLOWED_TAGS, GEN_COAL_DENIED_TAGS;
+    public static final ModConfigSpec.ConfigValue<String> GEN_COAL_BIOME_MODE;
     public static final ModConfigSpec.IntValue GEN_IRON_MIN, GEN_IRON_MAX, GEN_IRON_WEIGHT, GEN_IRON_RMIN, GEN_IRON_RMAX;
     public static final ModConfigSpec.LongValue GEN_IRON_UNITS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> GEN_IRON_ALLOWED_TAGS, GEN_IRON_DENIED_TAGS;
+    public static final ModConfigSpec.ConfigValue<String> GEN_IRON_BIOME_MODE;
     public static final ModConfigSpec.IntValue GEN_COPPER_MIN, GEN_COPPER_MAX, GEN_COPPER_WEIGHT, GEN_COPPER_RMIN, GEN_COPPER_RMAX;
     public static final ModConfigSpec.LongValue GEN_COPPER_UNITS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> GEN_COPPER_ALLOWED_TAGS, GEN_COPPER_DENIED_TAGS;
+    public static final ModConfigSpec.ConfigValue<String> GEN_COPPER_BIOME_MODE;
     public static final ModConfigSpec.IntValue GEN_ZINC_MIN, GEN_ZINC_MAX, GEN_ZINC_WEIGHT, GEN_ZINC_RMIN, GEN_ZINC_RMAX;
     public static final ModConfigSpec.LongValue GEN_ZINC_UNITS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> GEN_ZINC_ALLOWED_TAGS, GEN_ZINC_DENIED_TAGS;
+    public static final ModConfigSpec.ConfigValue<String> GEN_ZINC_BIOME_MODE;
     public static final ModConfigSpec.IntValue GEN_REDSTONE_MIN, GEN_REDSTONE_MAX, GEN_REDSTONE_WEIGHT, GEN_REDSTONE_RMIN, GEN_REDSTONE_RMAX;
     public static final ModConfigSpec.LongValue GEN_REDSTONE_UNITS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> GEN_REDSTONE_ALLOWED_TAGS, GEN_REDSTONE_DENIED_TAGS;
+    public static final ModConfigSpec.ConfigValue<String> GEN_REDSTONE_BIOME_MODE;
     public static final ModConfigSpec.IntValue GEN_GOLD_MIN, GEN_GOLD_MAX, GEN_GOLD_WEIGHT, GEN_GOLD_RMIN, GEN_GOLD_RMAX;
     public static final ModConfigSpec.LongValue GEN_GOLD_UNITS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> GEN_GOLD_ALLOWED_TAGS, GEN_GOLD_DENIED_TAGS;
+    public static final ModConfigSpec.ConfigValue<String> GEN_GOLD_BIOME_MODE;
 
     // --- distance bands ---
     public static final ModConfigSpec.IntValue BAND_INNER_MIN;
@@ -264,6 +276,9 @@ public final class CCIWorldConfig {
         GEN_COAL_RMIN   = builder.defineInRange("radius_min_blocks",   24,   1, 4096);
         GEN_COAL_RMAX   = builder.defineInRange("radius_max_blocks",   40,   1, 4096);
         GEN_COAL_UNITS  = builder.comment("Finite units per chunk inside a coal cluster (target).").defineInRange("units_per_chunk", 25000L, 0L, Long.MAX_VALUE);
+        GEN_COAL_ALLOWED_TAGS = builder.comment("v0.8 biome rules: allowed biome tags (e.g. \"#minecraft:is_forest\"). Empty = no allow restriction.").defineList("allowed_biome_tags", List::of, o -> o instanceof String);
+        GEN_COAL_DENIED_TAGS  = builder.comment("v0.8 biome rules: denied biome tags. If the chunk biome matches any -> no-vein.").defineList("denied_biome_tags", List::of, o -> o instanceof String);
+        GEN_COAL_BIOME_MODE   = builder.comment("v0.8 biome rules: 'permissive' (default; allow if not denied) or 'strict' (require an allowed tag match).").define("biome_policy_mode", "permissive");
         builder.pop();
         builder.push("iron");
         GEN_IRON_MIN    = builder.defineInRange("min_distance_blocks", 0,    0, Integer.MAX_VALUE);
@@ -272,6 +287,9 @@ public final class CCIWorldConfig {
         GEN_IRON_RMIN   = builder.defineInRange("radius_min_blocks",   24,   1, 4096);
         GEN_IRON_RMAX   = builder.defineInRange("radius_max_blocks",   40,   1, 4096);
         GEN_IRON_UNITS  = builder.comment("Finite units per chunk inside an iron cluster (target).").defineInRange("units_per_chunk", 15000L, 0L, Long.MAX_VALUE);
+        GEN_IRON_ALLOWED_TAGS = builder.comment("v0.8 biome rules: allowed biome tags. Empty = no allow restriction.").defineList("allowed_biome_tags", List::of, o -> o instanceof String);
+        GEN_IRON_DENIED_TAGS  = builder.comment("v0.8 biome rules: denied biome tags.").defineList("denied_biome_tags", List::of, o -> o instanceof String);
+        GEN_IRON_BIOME_MODE   = builder.comment("v0.8 biome rules: 'permissive' or 'strict'.").define("biome_policy_mode", "permissive");
         builder.pop();
         builder.push("copper");
         GEN_COPPER_MIN    = builder.defineInRange("min_distance_blocks", 0,    0, Integer.MAX_VALUE);
@@ -280,6 +298,9 @@ public final class CCIWorldConfig {
         GEN_COPPER_RMIN   = builder.defineInRange("radius_min_blocks",   24,   1, 4096);
         GEN_COPPER_RMAX   = builder.defineInRange("radius_max_blocks",   40,   1, 4096);
         GEN_COPPER_UNITS  = builder.comment("Finite units per chunk inside a copper cluster (target).").defineInRange("units_per_chunk", 15000L, 0L, Long.MAX_VALUE);
+        GEN_COPPER_ALLOWED_TAGS = builder.comment("v0.8 biome rules: allowed biome tags. Empty = no allow restriction.").defineList("allowed_biome_tags", List::of, o -> o instanceof String);
+        GEN_COPPER_DENIED_TAGS  = builder.comment("v0.8 biome rules: denied biome tags.").defineList("denied_biome_tags", List::of, o -> o instanceof String);
+        GEN_COPPER_BIOME_MODE   = builder.comment("v0.8 biome rules: 'permissive' or 'strict'.").define("biome_policy_mode", "permissive");
         builder.pop();
         builder.push("zinc");
         GEN_ZINC_MIN    = builder.defineInRange("min_distance_blocks", 400,  0, Integer.MAX_VALUE);
@@ -288,6 +309,9 @@ public final class CCIWorldConfig {
         GEN_ZINC_RMIN   = builder.defineInRange("radius_min_blocks",   18,   1, 4096);
         GEN_ZINC_RMAX   = builder.defineInRange("radius_max_blocks",   32,   1, 4096);
         GEN_ZINC_UNITS  = builder.comment("Finite units per chunk inside a zinc cluster (target).").defineInRange("units_per_chunk", 10000L, 0L, Long.MAX_VALUE);
+        GEN_ZINC_ALLOWED_TAGS = builder.comment("v0.8 biome rules: allowed biome tags. Empty = no allow restriction.").defineList("allowed_biome_tags", List::of, o -> o instanceof String);
+        GEN_ZINC_DENIED_TAGS  = builder.comment("v0.8 biome rules: denied biome tags. Default selective but non-blocking: deny in ocean.").defineList("denied_biome_tags", () -> List.of("#minecraft:is_ocean"), o -> o instanceof String);
+        GEN_ZINC_BIOME_MODE   = builder.comment("v0.8 biome rules: 'permissive' or 'strict'.").define("biome_policy_mode", "permissive");
         builder.pop();
         builder.push("redstone");
         GEN_REDSTONE_MIN    = builder.defineInRange("min_distance_blocks", 700,  0, Integer.MAX_VALUE);
@@ -296,6 +320,9 @@ public final class CCIWorldConfig {
         GEN_REDSTONE_RMIN   = builder.defineInRange("radius_min_blocks",   18,   1, 4096);
         GEN_REDSTONE_RMAX   = builder.defineInRange("radius_max_blocks",   32,   1, 4096);
         GEN_REDSTONE_UNITS  = builder.comment("Finite units per chunk inside a redstone cluster (target). NOTE: units_per_chunk must lie inside the reachable COE finite range [amountMultiplierMin*finiteAmountBase, amountMultiplierMax*finiteAmountBase] of the recipe, otherwise the solver will clamp. Redstone reachable range with default base=1000 is 10000..30000.").defineInRange("units_per_chunk", 10000L, 0L, Long.MAX_VALUE);
+        GEN_REDSTONE_ALLOWED_TAGS = builder.comment("v0.8 biome rules: allowed biome tags. Empty = no allow restriction.").defineList("allowed_biome_tags", List::of, o -> o instanceof String);
+        GEN_REDSTONE_DENIED_TAGS  = builder.comment("v0.8 biome rules: denied biome tags. Default selective but non-blocking: deny in ocean.").defineList("denied_biome_tags", () -> List.of("#minecraft:is_ocean"), o -> o instanceof String);
+        GEN_REDSTONE_BIOME_MODE   = builder.comment("v0.8 biome rules: 'permissive' or 'strict'.").define("biome_policy_mode", "permissive");
         builder.pop();
         builder.push("gold");
         GEN_GOLD_MIN    = builder.defineInRange("min_distance_blocks", 1200, 0, Integer.MAX_VALUE);
@@ -304,6 +331,9 @@ public final class CCIWorldConfig {
         GEN_GOLD_RMIN   = builder.defineInRange("radius_min_blocks",   12,   1, 4096);
         GEN_GOLD_RMAX   = builder.defineInRange("radius_max_blocks",   22,   1, 4096);
         GEN_GOLD_UNITS  = builder.comment("Finite units per chunk inside a gold cluster (target).").defineInRange("units_per_chunk", 4000L, 0L, Long.MAX_VALUE);
+        GEN_GOLD_ALLOWED_TAGS = builder.comment("v0.8 biome rules: allowed biome tags. Empty = no allow restriction.").defineList("allowed_biome_tags", List::of, o -> o instanceof String);
+        GEN_GOLD_DENIED_TAGS  = builder.comment("v0.8 biome rules: denied biome tags. Default selective but non-blocking: deny in ocean.").defineList("denied_biome_tags", () -> List.of("#minecraft:is_ocean"), o -> o instanceof String);
+        GEN_GOLD_BIOME_MODE   = builder.comment("v0.8 biome rules: 'permissive' or 'strict'.").define("biome_policy_mode", "permissive");
         builder.pop();
         builder.pop(); // rings
 

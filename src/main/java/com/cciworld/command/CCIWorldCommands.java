@@ -1220,6 +1220,14 @@ public final class CCIWorldCommands {
                 "\n  current ore_data:    " + (previousId != null ? previousId : "none") +
                 "\n  would_overwrite:     " + wouldWrite +
                 "\n  authoritative_gen:   " + CCIWorldConfig.AUTHORITATIVE_GENERATION_ENABLED.get() +
+                "\n  --- biome rules (v0.8) ---" +
+                "\n  biome id:            " + biomeStr +
+                "\n  picked ring:         " + (decision.pickedRingAlias().isEmpty() ? "(none)" : decision.pickedRingAlias()) +
+                "\n  biome evaluated:     " + decision.biomeEvaluated() +
+                "\n  biome allowed:       " + (decision.biomeEvaluated() ? Boolean.toString(decision.biomeAllowed()) : "n/a") +
+                "\n  biome reason:        " + decision.biomeReason() +
+                "\n  matched allowed:     " + (decision.biomeMatchedAllowed().isEmpty() ? "(none)" : decision.biomeMatchedAllowed()) +
+                "\n  matched denied:      " + (decision.biomeMatchedDenied().isEmpty() ? "(none)" : decision.biomeMatchedDenied()) +
                 "\n[INFO] this command is read-only; OreData is not written.";
 
             src.sendSuccess(() -> Component.literal(msg), false);
@@ -1259,7 +1267,12 @@ public final class CCIWorldCommands {
                 sb.append("\n      weight:          ").append(r.weight());
                 sb.append("\n      radius_min/max:  ").append(r.radiusMinBlocks()).append(" / ").append(r.radiusMaxBlocks()).append(" blocks");
                 sb.append("\n      units_per_chunk: ").append(r.unitsPerChunk());
+                // v0.8 biome rules
+                sb.append("\n      biome_mode:      ").append(com.cciworld.generator.BiomeRules.modeFor(r.alias()).name().toLowerCase(java.util.Locale.ROOT));
+                sb.append("\n      allowed_tags:    ").append(com.cciworld.generator.BiomeRules.allowedTagsFor(r.alias()));
+                sb.append("\n      denied_tags:     ").append(com.cciworld.generator.BiomeRules.deniedTagsFor(r.alias()));
             }
+            sb.append("\n  biome_rule_invalid_tag_warnings: ").append(com.cciworld.generator.BiomeRules.warnedTagCount());
             sb.append("\n  chunks_per_tick:     ").append(CCIWorldConfig.GEN_CHUNKS_PER_TICK.get());
             sb.append("\n  max_pending_jobs:    ").append(CCIWorldConfig.MAX_PENDING_GEN_JOBS.get());
             sb.append("\n  queue size:          ").append(ClusterGeneratorEngine.getQueueSize());
@@ -1321,7 +1334,10 @@ public final class CCIWorldCommands {
             boolean reasonOk = d1.isNoVein()
                 ? (d1.reason().equals("no_vein_cell_roll")
                     || d1.reason().equals("out_of_all_rings")
-                    || d1.reason().startsWith("outside_cluster_radius:"))
+                    || d1.reason().startsWith("outside_cluster_radius:")
+                    || d1.reason().startsWith("weighted_empty:")
+                    || d1.reason().startsWith("biome_denied:")
+                    || d1.reason().equals("biome_strict_no_match"))
                 : d1.reason().startsWith("in_cluster:");
             if (reasonOk) pass(sb, stats, "reason matches outcome: " + d1.reason());
             else fail(sb, stats, "reason inconsistent: reason=" + d1.reason() + " recipe=" + d1.finalRecipe());
@@ -1506,6 +1522,45 @@ public final class CCIWorldCommands {
             } else {
                 pass(sb, stats, "far ring sample too small (" + farTotal + " chunks) — skipped collapse check");
             }
+
+            // 6e. v0.8 — biome rules basic safety:
+            //   - evaluate against the player's chunk biome holder for every ring → no crash
+            //   - parseTag of an invalid id returns null and emits warn-once
+            try {
+                int evaluated = 0;
+                int sampleY = CCIWorldConfig.BIOME_SAMPLE_Y.get();
+                int bx = (chunk.getPos().x << 4) + 8;
+                int bz = (chunk.getPos().z << 4) + 8;
+                net.minecraft.core.Holder<net.minecraft.world.level.biome.Biome> bh =
+                    level.getBiome(new net.minecraft.core.BlockPos(bx, sampleY, bz));
+                for (ClusterGenerator.Ring r : ClusterGenerator.rings()) {
+                    com.cciworld.generator.BiomeRules.Result br =
+                        com.cciworld.generator.BiomeRules.evaluate(bh, r.alias());
+                    if (br.evaluated()) evaluated++;
+                }
+                pass(sb, stats, "biome rules evaluated for " + evaluated + "/6 rings without crash");
+            } catch (Throwable t) {
+                fail(sb, stats, "biome rules crashed: " + t.getClass().getSimpleName() + ": " + t.getMessage());
+            }
+            // Invalid tag must be ignored (not throw) and trigger the warn-once mechanism
+            int beforeWarn = com.cciworld.generator.BiomeRules.warnedTagCount();
+            net.minecraft.tags.TagKey<net.minecraft.world.level.biome.Biome> bad1 =
+                com.cciworld.generator.BiomeRules.parseTag("not a tag id!!");
+            net.minecraft.tags.TagKey<net.minecraft.world.level.biome.Biome> bad2 =
+                com.cciworld.generator.BiomeRules.parseTag("not a tag id!!"); // same -> no double-warn
+            int afterWarn = com.cciworld.generator.BiomeRules.warnedTagCount();
+            if (bad1 == null && bad2 == null && afterWarn == beforeWarn + 1) {
+                pass(sb, stats, "invalid biome tag fallback OK; warn-once incremented (" + beforeWarn + "->" + afterWarn + ")");
+            } else if (bad1 == null && bad2 == null) {
+                pass(sb, stats, "invalid biome tag fallback OK (warn count=" + afterWarn + ")");
+            } else {
+                fail(sb, stats, "invalid biome tag NOT rejected: bad1=" + bad1 + " bad2=" + bad2);
+            }
+            // Non-existent (well-formed) tag id parses but should not match any biome
+            net.minecraft.tags.TagKey<net.minecraft.world.level.biome.Biome> ghost =
+                com.cciworld.generator.BiomeRules.parseTag("#cci_world:does_not_exist_xyz");
+            if (ghost != null) pass(sb, stats, "well-formed unknown tag parsed (does not match biomes)");
+            else fail(sb, stats, "well-formed unknown tag failed to parse");
 
             // 7. Write the decision and read back
             ClusterGeneratorEngine.writeDecision(level, chunk, d1);
@@ -1744,6 +1799,7 @@ public final class CCIWorldCommands {
             }
 
             sb.append("\n[INFO] read-only simulation: no chunks loaded/generated, no OreData written.");
+            sb.append("\n[INFO] biome rules (v0.8) NOT evaluated by simulation (biome unavailable without loading chunks). Cluster counts here are an UPPER BOUND; in-game some clusters may flip to no-vein due to biome_denied. Use /cci_world debug_generator_here on a real chunk for the biome-aware decision.");
             String msg = sb.toString();
             src.sendSuccess(() -> Component.literal(msg), false);
             return 1;
