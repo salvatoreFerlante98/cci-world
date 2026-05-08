@@ -4,6 +4,7 @@ import com.cciworld.coe.COEVeinIds;
 import com.cciworld.coe.COEVeinWriter;
 import com.cciworld.config.CCIWorldConfig;
 import com.cciworld.policy.AutomaticPolicyEngine;
+import com.cciworld.policy.BiomePolicyRule;
 import com.cciworld.policy.DistanceBand;
 import com.cciworld.policy.PolicyQueue;
 import com.cciworld.policy.PolicyQueueEntry;
@@ -19,14 +20,20 @@ import com.tom.createores.OreDataAttachment;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
 import net.minecraft.core.SectionPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.chunk.LevelChunk;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public final class CCIWorldCommands {
@@ -59,6 +66,10 @@ public final class CCIWorldCommands {
                     .executes(CCIWorldCommands::policyStatus))
                 .then(Commands.literal("clear_policy_session_cache")
                     .executes(CCIWorldCommands::clearPolicySessionCache))
+                .then(Commands.literal("selftest")
+                    .executes(CCIWorldCommands::selftest))
+                .then(Commands.literal("selftest_policy_matrix")
+                    .executes(CCIWorldCommands::selftestPolicyMatrix))
         );
     }
 
@@ -491,5 +502,245 @@ public final class CCIWorldCommands {
             src.sendFailure(Component.literal("[CCI World] error: " + e.getMessage()));
             return 0;
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // selftest — read/write/restore OreData on the current loaded chunk
+    // -------------------------------------------------------------------------
+
+    private static int selftest(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        StringBuilder sb = new StringBuilder("[CCI World] selftest");
+        int[] stats = {0, 0}; // [pass, fail]
+
+        ResourceLocation origRecipe   = null;
+        float            origRandomMul = 0f;
+        boolean          origLoaded    = false;
+        boolean          stateModified = false;
+        LevelChunk       chunk         = null;
+        ServerLevel      level         = null;
+
+        try {
+            ServerPlayer player = src.getPlayerOrException();
+            level = player.serverLevel();
+            chunk = level.getChunkAt(player.blockPosition());
+
+            // Step 1: capture original state
+            OreData orig = OreDataAttachment.getData(chunk);
+            origRecipe    = orig.getRecipeId();
+            origRandomMul = orig.getRandomMul();
+            origLoaded    = orig.isLoaded();
+
+            sb.append("\n  chunk: ").append(chunk.getPos().x).append("/").append(chunk.getPos().z);
+            sb.append("\n  original recipe: ").append(origRecipe != null ? origRecipe : "none");
+
+            pass(sb, stats, "chunk loaded");
+
+            // Prerequisites: iron and copper must exist in RecipeManager
+            var recipeMgr = src.getServer().getRecipeManager();
+            ResourceLocation ironId   = COEVeinIds.fromAlias("iron").orElse(null);
+            ResourceLocation copperId = COEVeinIds.fromAlias("copper").orElse(null);
+
+            boolean prereq = ironId != null && copperId != null
+                && COEVeinWriter.veinExists(recipeMgr, ironId)
+                && COEVeinWriter.veinExists(recipeMgr, copperId);
+
+            if (!prereq) {
+                fail(sb, stats, "iron/copper recipes not in RecipeManager (is COE loaded?)");
+            } else {
+                // Step 2: write iron
+                COEVeinWriter.writeVein(chunk, ironId);
+                stateModified = true;
+                ResourceLocation gotIron = OreDataAttachment.getData(chunk).getRecipeId();
+                if (ironId.equals(gotIron)) {
+                    pass(sb, stats, "set iron (" + ironId + ")");
+                } else {
+                    fail(sb, stats, "set iron — got: " + gotIron);
+                }
+
+                // Step 3: write copper (replace iron -> copper)
+                COEVeinWriter.writeVein(chunk, copperId);
+                ResourceLocation gotCopper = OreDataAttachment.getData(chunk).getRecipeId();
+                if (copperId.equals(gotCopper)) {
+                    pass(sb, stats, "replace iron -> copper (" + copperId + ")");
+                } else {
+                    fail(sb, stats, "replace iron -> copper — got: " + gotCopper);
+                }
+
+                // Step 4: policy evaluation (dry-run, no write)
+                PolicyResult pr = ResourcePolicyService.inspect(level, chunk);
+                String prDetail = "policy evaluation: reason=" + pr.reason()
+                    + " policyType=" + pr.policyType()
+                    + (pr.biomeId() != null ? " biome=" + pr.biomeId() : "");
+                pass(sb, stats, prDetail);
+            }
+        } catch (Exception e) {
+            fail(sb, stats, "exception: " + e.getMessage());
+        }
+
+        // Restore — always attempted after any mutation
+        if (stateModified && chunk != null) {
+            if (origRecipe != null) {
+                try {
+                    OreData restore = OreDataAttachment.getData(chunk);
+                    restore.setRecipe(origRecipe);
+                    restore.setLoaded(origLoaded);
+                    restore.setRandomMul(origRandomMul);
+                    chunk.setUnsaved(true);
+
+                    ResourceLocation verifyId = OreDataAttachment.getData(chunk).getRecipeId();
+                    if (origRecipe.equals(verifyId)) {
+                        pass(sb, stats, "restored original recipe (" + origRecipe + ")");
+                        sb.append("\n[WARN] extractedAmount not restorable — not readable via public API");
+                    } else {
+                        fail(sb, stats, "restore verification failed — got: " + verifyId);
+                    }
+                } catch (Exception re) {
+                    fail(sb, stats, "restore threw exception: " + re.getMessage());
+                }
+            } else {
+                sb.append("\n[WARN] cannot restore null recipe (setRecipe(null) not used)");
+                sb.append("\n[WARN] chunk ").append(chunk.getPos().x).append("/")
+                  .append(chunk.getPos().z).append(" left with recipe from test");
+            }
+        }
+
+        sb.append("\n--- ").append(stats[0]).append(" passed, ").append(stats[1]).append(" failed ---");
+        int finalFail = stats[1];
+        String msg = sb.toString();
+        src.sendSuccess(() -> Component.literal(msg), false);
+        return finalFail == 0 ? 1 : 0;
+    }
+
+    // -------------------------------------------------------------------------
+    // selftest_policy_matrix — pure config validation, no world mutation
+    // -------------------------------------------------------------------------
+
+    private static int selftestPolicyMatrix(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        StringBuilder sb = new StringBuilder("[CCI World] selftest_policy_matrix");
+        int[] stats = {0, 0}; // [pass, fail]
+
+        try {
+            ServerPlayer player = src.getPlayerOrException();
+            ServerLevel level = player.serverLevel();
+            LevelChunk chunk = level.getChunkAt(player.blockPosition());
+            var recipeMgr = src.getServer().getRecipeManager();
+
+            // --- Distance bands ---
+            sb.append("\n--- Distance Bands ---");
+            List<DistanceBand> bands = CCIWorldConfig.parseBands();
+            for (DistanceBand band : bands) {
+                String bandLabel = "band " + band.name()
+                    + " [" + band.minDistance() + "-" + band.maxDistance() + "]";
+                if (band.replacements().isEmpty()) {
+                    sb.append("\n[INFO] ").append(bandLabel).append(": no replacement rules");
+                } else {
+                    for (Map.Entry<ResourceLocation, ResourceLocation> e : band.replacements().entrySet()) {
+                        ResourceLocation from = e.getKey();
+                        ResourceLocation to   = e.getValue();
+                        boolean fromOk = COEVeinWriter.veinExists(recipeMgr, from);
+                        boolean toOk   = COEVeinWriter.veinExists(recipeMgr, to);
+                        String detail = bandLabel + ": " + from.getPath() + " -> " + to.getPath();
+                        if (fromOk && toOk) {
+                            pass(sb, stats, detail + " (both exist)");
+                        } else {
+                            fail(sb, stats, detail
+                                + (!fromOk ? " [source MISSING]" : "")
+                                + (!toOk   ? " [target MISSING]" : ""));
+                        }
+                    }
+                }
+            }
+
+            // --- Biome rules ---
+            sb.append("\n--- Biome Rules ---");
+
+            // Sample current biome (real data, not simulated)
+            int bx = chunk.getPos().getMinBlockX() + 8;
+            int bz = chunk.getPos().getMinBlockZ() + 8;
+            int by = CCIWorldConfig.BIOME_SAMPLE_Y.get();
+            Holder<Biome> biomeHolder = chunk.getNoiseBiome(bx >> 2, by >> 2, bz >> 2);
+            Optional<ResourceKey<Biome>> biomeKey = biomeHolder.unwrapKey();
+            ResourceLocation currentBiome = biomeKey.map(ResourceKey::location).orElse(null);
+            sb.append("\n[INFO] current biome (real): ")
+              .append(currentBiome != null ? currentBiome : "unknown");
+
+            Registry<Biome> biomeRegistry = level.registryAccess().registryOrThrow(Registries.BIOME);
+            List<BiomePolicyRule> biomeRules = CCIWorldConfig.parseBiomeRules();
+
+            if (biomeRules.isEmpty()) {
+                sb.append("\n[INFO] no biome rules configured");
+            }
+
+            for (BiomePolicyRule rule : biomeRules) {
+                sb.append("\n  rule '").append(rule.name()).append("':");
+
+                // Source recipe exists?
+                if (COEVeinWriter.veinExists(recipeMgr, rule.sourceRecipe())) {
+                    pass(sb, stats, "source recipe exists (" + rule.sourceRecipe() + ")");
+                } else {
+                    fail(sb, stats, "source recipe MISSING: " + rule.sourceRecipe());
+                }
+
+                // Replacement recipe exists?
+                if (COEVeinWriter.veinExists(recipeMgr, rule.replacementRecipe())) {
+                    pass(sb, stats, "replacement recipe exists (" + rule.replacementRecipe() + ")");
+                } else {
+                    fail(sb, stats, "replacement recipe MISSING: " + rule.replacementRecipe());
+                }
+
+                // Validate allowed biomes against registry
+                int valid = 0, invalid = 0;
+                for (ResourceLocation id : rule.allowedBiomes()) {
+                    if (biomeRegistry.containsKey(id)) valid++; else invalid++;
+                }
+                if (invalid == 0) {
+                    pass(sb, stats, "allowed_biomes: " + valid + " valid, 0 invalid");
+                } else {
+                    fail(sb, stats, "allowed_biomes: " + valid + " valid, " + invalid + " invalid");
+                    for (ResourceLocation id : rule.allowedBiomes()) {
+                        if (!biomeRegistry.containsKey(id)) {
+                            sb.append("\n    [FAIL] not in biome registry: ").append(id);
+                        }
+                    }
+                }
+
+                // Predict biome policy outcome for current chunk (real biome)
+                if (currentBiome != null) {
+                    boolean allowed = rule.allowedBiomes().stream()
+                        .filter(biomeRegistry::containsKey)
+                        .anyMatch(currentBiome::equals);
+                    sb.append("\n    [INFO] current biome '").append(currentBiome).append("': ")
+                      .append(allowed
+                          ? "ALLOWED — source vein would stay"
+                          : "NOT ALLOWED — replacement would apply if source recipe present");
+                }
+            }
+
+            sb.append("\n--- ").append(stats[0]).append(" passed, ").append(stats[1]).append(" failed ---");
+        } catch (Exception e) {
+            fail(sb, stats, "exception: " + e.getMessage());
+            sb.append("\n--- ").append(stats[0]).append(" passed, ").append(stats[1]).append(" failed ---");
+        }
+
+        int finalFail = stats[1];
+        String msg = sb.toString();
+        src.sendSuccess(() -> Component.literal(msg), false);
+        return finalFail == 0 ? 1 : 0;
+    }
+
+    // -------------------------------------------------------------------------
+    // Selftest helpers
+    // -------------------------------------------------------------------------
+
+    private static void pass(StringBuilder sb, int[] stats, String detail) {
+        sb.append("\n[PASS] ").append(detail);
+        stats[0]++;
+    }
+
+    private static void fail(StringBuilder sb, int[] stats, String detail) {
+        sb.append("\n[FAIL] ").append(detail);
+        stats[1]++;
     }
 }
