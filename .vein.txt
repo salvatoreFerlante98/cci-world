@@ -1,0 +1,303 @@
+﻿Compiled from "VeinRecipe.java"
+public class com.tom.createores.recipe.VeinRecipe implements net.minecraft.world.item.crafting.Recipe<net.minecraft.world.item.crafting.CraftingInput> {
+  public int priority;
+
+  public net.minecraft.network.chat.Component veinName;
+
+  public net.minecraft.tags.TagKey<net.minecraft.world.level.biome.Biome> biomeWhitelist;
+
+  public net.minecraft.tags.TagKey<net.minecraft.world.level.biome.Biome> biomeBlacklist;
+
+  public com.tom.createores.util.ThreeState finite;
+
+  public float amountMultiplierMin;
+
+  public float amountMultiplierMax;
+
+  public net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement placement;
+
+  public net.minecraft.world.item.ItemStack icon;
+
+  protected boolean isNet;
+
+  public com.tom.createores.recipe.VeinRecipe();
+    Code:
+         0: aload_0
+         1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+         4: return
+
+  public com.tom.createores.recipe.VeinRecipe(net.minecraft.network.chat.Component, int, java.util.Optional<net.minecraft.tags.TagKey<net.minecraft.world.level.biome.Biome>>, java.util.Optional<net.minecraft.tags.TagKey<net.minecraft.world.level.biome.Biome>>, com.tom.createores.util.ThreeState, float, float, net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement, net.minecraft.world.item.ItemStack);
+    Code:
+         0: aload_0
+         1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+         4: aload_0
+         5: aload_1
+         6: putfield      #7                  // Field veinName:Lnet/minecraft/network/chat/Component;
+         9: aload_0
+        10: iload_2
+        11: putfield      #13                 // Field priority:I
+        14: aload_0
+        15: aload_3
+        16: aconst_null
+        17: invokevirtual #17                 // Method java/util/Optional.orElse:(Ljava/lang/Object;)Ljava/lang/Object;
+        20: checkcast     #23                 // class net/minecraft/tags/TagKey
+        23: putfield      #25                 // Field biomeWhitelist:Lnet/minecraft/tags/TagKey;
+        26: aload_0
+        27: aload         4
+        29: aconst_null
+        30: invokevirtual #17                 // Method java/util/Optional.orElse:(Ljava/lang/Object;)Ljava/lang/Object;
+        33: checkcast     #23                 // class net/minecraft/tags/TagKey
+        36: putfield      #29                 // Field biomeBlacklist:Lnet/minecraft/tags/TagKey;
+        39: aload_0
+        40: aload         5
+        42: putfield      #32                 // Field finite:Lcom/tom/createores/util/ThreeState;
+        45: aload_0
+        46: fload         6
+        48: putfield      #36                 // Field amountMultiplierMin:F
+        51: aload_0
+        52: fload         7
+        54: putfield      #40                 // Field amountMultiplierMax:F
+        57: aload_0
+        58: aload         8
+        60: putfield      #43                 // Field placement:Lnet/minecraft/world/level/levelgen/structure/placement/RandomSpreadStructurePlacement;
+        63: aload_0
+        64: aload         9
+        66: putfield      #47                 // Field icon:Lnet/minecraft/world/item/ItemStack;
+        69: return
+
+  public boolean matches(net.minecraft.world.item.crafting.CraftingInput, net.minecraft.world.level.Level);
+    Code:
+         0: iconst_0
+         1: ireturn
+
+  public net.minecraft.world.item.ItemStack assemble(net.minecraft.world.item.crafting.CraftingInput, net.minecraft.core.HolderLookup$Provider);
+    Code:
+         0: aload_0
+         1: aload_2
+         2: invokevirtual #51                 // Method getResultItem:(Lnet/minecraft/core/HolderLookup$Provider;)Lnet/minecraft/world/item/ItemStack;
+         5: areturn
+
+  public boolean canCraftInDimensions(int, int);
+    Code:
+         0: iconst_1
+         1: ireturn
+
+  public net.minecraft.world.item.ItemStack getResultItem(net.minecraft.core.HolderLookup$Provider);
+    Code:
+         0: getstatic     #55                 // Field net/minecraft/world/item/ItemStack.EMPTY:Lnet/minecraft/world/item/ItemStack;
+         3: areturn
+
+  public net.minecraft.world.item.crafting.RecipeSerializer<?> getSerializer();
+    Code:
+         0: getstatic     #60                 // Field com/tom/createores/CreateOreExcavation.VEIN_RECIPES:Lcom/tom/createores/CreateOreExcavation$RecipeTypeGroup;
+         3: invokevirtual #66                 // Method com/tom/createores/CreateOreExcavation$RecipeTypeGroup.getSerializer:()Lnet/minecraft/world/item/crafting/RecipeSerializer;
+         6: areturn
+
+  public net.minecraft.world.item.crafting.RecipeType<?> getType();
+    Code:
+         0: getstatic     #60                 // Field com/tom/createores/CreateOreExcavation.VEIN_RECIPES:Lcom/tom/createores/CreateOreExcavation$RecipeTypeGroup;
+         3: invokevirtual #72                 // Method com/tom/createores/CreateOreExcavation$RecipeTypeGroup.getRecipeType:()Lnet/minecraft/world/item/crafting/RecipeType;
+         6: areturn
+
+  public net.minecraft.network.chat.Component getName();
+    Code:
+         0: aload_0
+         1: getfield      #7                  // Field veinName:Lnet/minecraft/network/chat/Component;
+         4: areturn
+
+  public java.lang.String getGroup();
+    Code:
+         0: ldc           #76                 // String ore_vein_type
+         2: areturn
+
+  public boolean canGenerate(net.minecraft.server.level.ServerLevel, net.minecraft.core.Holder<net.minecraft.world.level.biome.Biome>);
+    Code:
+         0: aload_0
+         1: getfield      #29                 // Field biomeBlacklist:Lnet/minecraft/tags/TagKey;
+         4: ifnull        21
+         7: aload_0
+         8: getfield      #29                 // Field biomeBlacklist:Lnet/minecraft/tags/TagKey;
+        11: aload_1
+        12: aload_2
+        13: invokestatic  #78                 // Method isInTag:(Lnet/minecraft/tags/TagKey;Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/Holder;)Z
+        16: ifeq          21
+        19: iconst_0
+        20: ireturn
+        21: aload_0
+        22: getfield      #25                 // Field biomeWhitelist:Lnet/minecraft/tags/TagKey;
+        25: ifnull        38
+        28: aload_0
+        29: getfield      #25                 // Field biomeWhitelist:Lnet/minecraft/tags/TagKey;
+        32: aload_1
+        33: aload_2
+        34: invokestatic  #78                 // Method isInTag:(Lnet/minecraft/tags/TagKey;Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/Holder;)Z
+        37: ireturn
+        38: iconst_1
+        39: ireturn
+
+  private static boolean isInTag(net.minecraft.tags.TagKey<net.minecraft.world.level.biome.Biome>, net.minecraft.server.level.ServerLevel, net.minecraft.core.Holder<net.minecraft.world.level.biome.Biome>);
+    Code:
+         0: aload_1
+         1: invokevirtual #82                 // Method net/minecraft/server/level/ServerLevel.getServer:()Lnet/minecraft/server/MinecraftServer;
+         4: invokevirtual #88                 // Method net/minecraft/server/MinecraftServer.registryAccess:()Lnet/minecraft/core/RegistryAccess$Frozen;
+         7: getstatic     #94                 // Field net/minecraft/core/registries/Registries.BIOME:Lnet/minecraft/resources/ResourceKey;
+        10: invokeinterface #100,  2          // InterfaceMethod net/minecraft/core/RegistryAccess$Frozen.registryOrThrow:(Lnet/minecraft/resources/ResourceKey;)Lnet/minecraft/core/Registry;
+        15: aload_0
+        16: invokeinterface #106,  2          // InterfaceMethod net/minecraft/core/Registry.getTag:(Lnet/minecraft/tags/TagKey;)Ljava/util/Optional;
+        21: aload_2
+        22: invokedynamic #112,  0            // InvokeDynamic #0:apply:(Lnet/minecraft/core/Holder;)Ljava/util/function/Function;
+        27: invokevirtual #116                // Method java/util/Optional.map:(Ljava/util/function/Function;)Ljava/util/Optional;
+        30: iconst_0
+        31: invokestatic  #120                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+        34: invokevirtual #17                 // Method java/util/Optional.orElse:(Ljava/lang/Object;)Ljava/lang/Object;
+        37: checkcast     #121                // class java/lang/Boolean
+        40: invokevirtual #126                // Method java/lang/Boolean.booleanValue:()Z
+        43: ireturn
+
+  public com.tom.createores.util.ThreeState isFinite();
+    Code:
+         0: aload_0
+         1: getfield      #32                 // Field finite:Lcom/tom/createores/util/ThreeState;
+         4: areturn
+
+  public float getMinAmount();
+    Code:
+         0: aload_0
+         1: getfield      #36                 // Field amountMultiplierMin:F
+         4: freturn
+
+  public float getMaxAmount();
+    Code:
+         0: aload_0
+         1: getfield      #40                 // Field amountMultiplierMax:F
+         4: freturn
+
+  public boolean isInfiniteClient();
+    Code:
+         0: aload_0
+         1: getfield      #130                // Field isNet:Z
+         4: ifeq          25
+         7: aload_0
+         8: getfield      #32                 // Field finite:Lcom/tom/createores/util/ThreeState;
+        11: getstatic     #134                // Field com/tom/createores/util/ThreeState.NEVER:Lcom/tom/createores/util/ThreeState;
+        14: if_acmpne     21
+        17: iconst_1
+        18: goto          56
+        21: iconst_0
+        22: goto          56
+        25: aload_0
+        26: getfield      #32                 // Field finite:Lcom/tom/createores/util/ThreeState;
+        29: getstatic     #139                // Field com/tom/createores/util/ThreeState.DEFAULT:Lcom/tom/createores/util/ThreeState;
+        32: if_acmpne     41
+        35: getstatic     #142                // Field com/tom/createores/Config.defaultInfinite:Z
+        38: goto          56
+        41: aload_0
+        42: getfield      #32                 // Field finite:Lcom/tom/createores/util/ThreeState;
+        45: getstatic     #134                // Field com/tom/createores/util/ThreeState.NEVER:Lcom/tom/createores/util/ThreeState;
+        48: if_acmpne     55
+        51: iconst_1
+        52: goto          56
+        55: iconst_0
+        56: ireturn
+
+  public long getMinAmountClient();
+    Code:
+         0: aload_0
+         1: getfield      #130                // Field isNet:Z
+         4: ifeq          15
+         7: aload_0
+         8: getfield      #36                 // Field amountMultiplierMin:F
+        11: f2d
+        12: goto          25
+        15: aload_0
+        16: getfield      #36                 // Field amountMultiplierMin:F
+        19: f2d
+        20: getstatic     #147                // Field com/tom/createores/Config.finiteAmountBase:I
+        23: i2d
+        24: dmul
+        25: invokestatic  #150                // Method java/lang/Math.round:(D)J
+        28: lreturn
+
+  public long getMaxAmountClient();
+    Code:
+         0: aload_0
+         1: getfield      #130                // Field isNet:Z
+         4: ifeq          15
+         7: aload_0
+         8: getfield      #40                 // Field amountMultiplierMax:F
+        11: f2d
+        12: goto          25
+        15: aload_0
+        16: getfield      #40                 // Field amountMultiplierMax:F
+        19: f2d
+        20: getstatic     #147                // Field com/tom/createores/Config.finiteAmountBase:I
+        23: i2d
+        24: dmul
+        25: invokestatic  #150                // Method java/lang/Math.round:(D)J
+        28: lreturn
+
+  public int getNegGenerationPriority();
+    Code:
+         0: aload_0
+         1: getfield      #13                 // Field priority:I
+         4: ineg
+         5: ireturn
+
+  public int getPriority();
+    Code:
+         0: aload_0
+         1: getfield      #13                 // Field priority:I
+         4: ireturn
+
+  public net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement getPlacement();
+    Code:
+         0: aload_0
+         1: getfield      #43                 // Field placement:Lnet/minecraft/world/level/levelgen/structure/placement/RandomSpreadStructurePlacement;
+         4: areturn
+
+  public java.util.Optional<net.minecraft.tags.TagKey<net.minecraft.world.level.biome.Biome>> biomeWhitelist();
+    Code:
+         0: aload_0
+         1: getfield      #25                 // Field biomeWhitelist:Lnet/minecraft/tags/TagKey;
+         4: invokestatic  #156                // Method java/util/Optional.ofNullable:(Ljava/lang/Object;)Ljava/util/Optional;
+         7: areturn
+
+  public java.util.Optional<net.minecraft.tags.TagKey<net.minecraft.world.level.biome.Biome>> biomeBlacklist();
+    Code:
+         0: aload_0
+         1: getfield      #29                 // Field biomeBlacklist:Lnet/minecraft/tags/TagKey;
+         4: invokestatic  #156                // Method java/util/Optional.ofNullable:(Ljava/lang/Object;)Ljava/util/Optional;
+         7: areturn
+
+  public net.minecraft.world.item.ItemStack getIcon();
+    Code:
+         0: aload_0
+         1: getfield      #47                 // Field icon:Lnet/minecraft/world/item/ItemStack;
+         4: areturn
+
+  public net.minecraft.world.item.ItemStack assemble(net.minecraft.world.item.crafting.RecipeInput, net.minecraft.core.HolderLookup$Provider);
+    Code:
+         0: aload_0
+         1: aload_1
+         2: checkcast     #160                // class net/minecraft/world/item/crafting/CraftingInput
+         5: aload_2
+         6: invokevirtual #162                // Method assemble:(Lnet/minecraft/world/item/crafting/CraftingInput;Lnet/minecraft/core/HolderLookup$Provider;)Lnet/minecraft/world/item/ItemStack;
+         9: areturn
+
+  public boolean matches(net.minecraft.world.item.crafting.RecipeInput, net.minecraft.world.level.Level);
+    Code:
+         0: aload_0
+         1: aload_1
+         2: checkcast     #160                // class net/minecraft/world/item/crafting/CraftingInput
+         5: aload_2
+         6: invokevirtual #166                // Method matches:(Lnet/minecraft/world/item/crafting/CraftingInput;Lnet/minecraft/world/level/Level;)Z
+         9: ireturn
+
+  private static java.lang.Boolean lambda$isInTag$0(net.minecraft.core.Holder, net.minecraft.core.HolderSet$Named);
+    Code:
+         0: aload_1
+         1: aload_0
+         2: invokevirtual #170                // Method net/minecraft/core/HolderSet$Named.contains:(Lnet/minecraft/core/Holder;)Z
+         5: invokestatic  #120                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+         8: areturn
+}

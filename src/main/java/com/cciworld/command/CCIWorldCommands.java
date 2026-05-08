@@ -1160,6 +1160,28 @@ public final class CCIWorldCommands {
             String centerStr = (decision.centerX() == 0 && decision.centerZ() == 0 && decision.radiusBlocks() == 0)
                 ? "(none — empty cell)"
                 : decision.centerX() + " / " + decision.centerZ();
+
+            // Finite-amount math (only meaningful for vein decisions)
+            String unitsStr = "—";
+            String randomMulStr = "—";
+            String expectedStr = "—";
+            String finiteStr = "—";
+            String solveNote = "—";
+            if (!decision.isNoVein()) {
+                long units = ClusterGenerator.unitsForRecipeId(decision.finalRecipe());
+                unitsStr = Long.toString(units);
+                var recipeOpt = com.cciworld.coe.COEFiniteMath.findVeinRecipe(
+                    src.getServer().getRecipeManager(), decision.finalRecipe());
+                if (recipeOpt.isPresent()) {
+                    finiteStr = com.cciworld.coe.COEFiniteMath.isFinite(recipeOpt.get()) ? "yes" : "no";
+                    var sol = com.cciworld.coe.COEFiniteMath.solveRandomMul(recipeOpt.get(), units);
+                    randomMulStr = String.format(java.util.Locale.ROOT, "%.6f", sol.randomMul());
+                    expectedStr = sol.expectedTotalUnits() + (sol.exact() ? " (exact)" : " (rounded/clamped)");
+                    solveNote = sol.note();
+                } else {
+                    solveNote = "recipe not found in COE";
+                }
+            }
             String msg = "[CCI World] debug_generator_here" +
                 "\n  dimension:           " + level.dimension().location() +
                 "\n  chunk x/z:           " + decision.chunkX() + " / " + decision.chunkZ() +
@@ -1171,10 +1193,16 @@ public final class CCIWorldCommands {
                 "\n  cluster radius:      " + decision.radiusBlocks() + " blocks" +
                 "\n  dist_from_center:    " + decision.distanceFromCenterBlocks() + " blocks" +
                 "\n  selected resource:   " + resStr +
+                "\n  cluster_id (hash):   " + Long.toHexString(decision.clusterId()) +
                 "\n  final recipe:        " + (decision.isNoVein() ? "null (no-vein)" : decision.finalRecipe()) +
                 "\n  reason:              " + decision.reason() +
-                "\n  cluster_id (hash):   " + Long.toHexString(decision.clusterId()) +
-                "\n  random_roll:         " + String.format("%.6f", decision.roll()) +
+                "\n  random_roll:         " + String.format(java.util.Locale.ROOT, "%.6f", decision.roll()) +
+                "\n  configured units:    " + unitsStr +
+                "\n  finite recipe:       " + finiteStr +
+                "\n  computed randomMul:  " + randomMulStr +
+                "\n  expected max amount: " + expectedStr +
+                "\n  finite_amount_base:  " + com.cciworld.coe.COEFiniteMath.finiteAmountBase() +
+                "\n  solver note:         " + solveNote +
                 "\n  current ore_data:    " + (previousId != null ? previousId : "none") +
                 "\n  would_overwrite:     " + wouldWrite +
                 "\n  authoritative_gen:   " + CCIWorldConfig.AUTHORITATIVE_GENERATION_ENABLED.get() +
@@ -1202,6 +1230,14 @@ public final class CCIWorldCommands {
                   ? " [SUPPRESSED — authoritative owns OreData]" : "");
             sb.append("\n  cell_size_chunks:    ").append(CCIWorldConfig.GEN_CELL_SIZE_CHUNKS.get());
             sb.append("\n  no_vein_chance:      ").append(CCIWorldConfig.GEN_NO_VEIN_CHANCE.get());
+            sb.append("\n  finite_amount_base:  ").append(com.cciworld.coe.COEFiniteMath.finiteAmountBase());
+            sb.append("\n  units_per_chunk:");
+            sb.append("\n    coal:     ").append(CCIWorldConfig.GEN_COAL_UNITS.get());
+            sb.append("\n    iron:     ").append(CCIWorldConfig.GEN_IRON_UNITS.get());
+            sb.append("\n    copper:   ").append(CCIWorldConfig.GEN_COPPER_UNITS.get());
+            sb.append("\n    zinc:     ").append(CCIWorldConfig.GEN_ZINC_UNITS.get());
+            sb.append("\n    redstone: ").append(CCIWorldConfig.GEN_REDSTONE_UNITS.get());
+            sb.append("\n    gold:     ").append(CCIWorldConfig.GEN_GOLD_UNITS.get());
             sb.append("\n  chunks_per_tick:     ").append(CCIWorldConfig.GEN_CHUNKS_PER_TICK.get());
             sb.append("\n  max_pending_jobs:    ").append(CCIWorldConfig.MAX_PENDING_GEN_JOBS.get());
             sb.append("\n  queue size:          ").append(ClusterGeneratorEngine.getQueueSize());
@@ -1319,8 +1355,28 @@ public final class CCIWorldCommands {
                 sb.append("\n[INFO] no neighboring chunks loaded — skip distribution sample");
             }
 
+            // 6b. Finite solver: for a vein decision, computed randomMul must be in [0,1]
+            //     and expected total amount must be > 0 if the recipe is finite.
+            if (!d1.isNoVein()) {
+                long unitsCfg = ClusterGenerator.unitsForRecipeId(d1.finalRecipe());
+                var recipeOpt = com.cciworld.coe.COEFiniteMath.findVeinRecipe(
+                    src.getServer().getRecipeManager(), d1.finalRecipe());
+                if (recipeOpt.isPresent()) {
+                    var sol = com.cciworld.coe.COEFiniteMath.solveRandomMul(recipeOpt.get(), unitsCfg);
+                    boolean ok = sol.randomMul() >= 0F && sol.randomMul() <= 1F
+                        && sol.expectedTotalUnits() >= 0;
+                    if (ok) pass(sb, stats, "finite solver: randomMul=" + sol.randomMul()
+                        + " expected=" + sol.expectedTotalUnits()
+                        + (sol.exact() ? " (exact)" : " (" + sol.note() + ")"));
+                    else fail(sb, stats, "finite solver invalid: randomMul=" + sol.randomMul()
+                        + " expected=" + sol.expectedTotalUnits() + " note=" + sol.note());
+                } else {
+                    sb.append("\n[INFO] finite solver: recipe not in COE — skipped");
+                }
+            }
+
             // 7. Write the decision and read back
-            ClusterGeneratorEngine.writeDecision(chunk, d1);
+            ClusterGeneratorEngine.writeDecision(level, chunk, d1);
             OreData after = OreDataAttachment.getData(chunk);
             if (d1.isNoVein()) {
                 if (after.getRecipeId() == null && after.isLoaded())
@@ -1328,10 +1384,12 @@ public final class CCIWorldCommands {
                 else
                     fail(sb, stats, "write+readback no-vein got recipe=" + after.getRecipeId() + " loaded=" + after.isLoaded());
             } else {
-                if (d1.finalRecipe().equals(after.getRecipeId()))
-                    pass(sb, stats, "write+readback recipe OK: " + after.getRecipeId());
-                else
+                if (d1.finalRecipe().equals(after.getRecipeId())) {
+                    pass(sb, stats, "write+readback recipe OK: " + after.getRecipeId()
+                        + " randomMul=" + after.getRandomMul());
+                } else {
                     fail(sb, stats, "write+readback recipe mismatch: expected=" + d1.finalRecipe() + " got=" + after.getRecipeId());
+                }
             }
 
             sb.append("\n--- ").append(stats[0]).append(" passed, ").append(stats[1]).append(" failed ---");

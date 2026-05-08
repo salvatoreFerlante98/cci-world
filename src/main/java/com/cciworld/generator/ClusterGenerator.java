@@ -40,9 +40,10 @@ public final class ClusterGenerator {
 
     private ClusterGenerator() {}
 
-    /** Resource ring: distance-from-spawn band, weight, radius range (blocks). */
+    /** Resource ring: distance-from-spawn band, weight, radius range (blocks), units per chunk. */
     public record Ring(String alias, int minBlocks, int maxBlocks, int weight,
                        int radiusMinBlocks, int radiusMaxBlocks,
+                       long unitsPerChunk,
                        ResourceLocation recipeId) {}
 
     /** Build the ring set from current config values. */
@@ -52,37 +53,52 @@ public final class ClusterGenerator {
             CCIWorldConfig.GEN_COAL_MIN.get(), CCIWorldConfig.GEN_COAL_MAX.get(),
             CCIWorldConfig.GEN_COAL_WEIGHT.get(),
             CCIWorldConfig.GEN_COAL_RMIN.get(), CCIWorldConfig.GEN_COAL_RMAX.get(),
+            CCIWorldConfig.GEN_COAL_UNITS.get(),
             COEVeinIds.fromAlias("coal").orElseThrow()));
         r.add(new Ring("iron",
             CCIWorldConfig.GEN_IRON_MIN.get(), CCIWorldConfig.GEN_IRON_MAX.get(),
             CCIWorldConfig.GEN_IRON_WEIGHT.get(),
             CCIWorldConfig.GEN_IRON_RMIN.get(), CCIWorldConfig.GEN_IRON_RMAX.get(),
+            CCIWorldConfig.GEN_IRON_UNITS.get(),
             COEVeinIds.fromAlias("iron").orElseThrow()));
         r.add(new Ring("copper",
             CCIWorldConfig.GEN_COPPER_MIN.get(), CCIWorldConfig.GEN_COPPER_MAX.get(),
             CCIWorldConfig.GEN_COPPER_WEIGHT.get(),
             CCIWorldConfig.GEN_COPPER_RMIN.get(), CCIWorldConfig.GEN_COPPER_RMAX.get(),
+            CCIWorldConfig.GEN_COPPER_UNITS.get(),
             COEVeinIds.fromAlias("copper").orElseThrow()));
         r.add(new Ring("zinc",
             CCIWorldConfig.GEN_ZINC_MIN.get(), CCIWorldConfig.GEN_ZINC_MAX.get(),
             CCIWorldConfig.GEN_ZINC_WEIGHT.get(),
             CCIWorldConfig.GEN_ZINC_RMIN.get(), CCIWorldConfig.GEN_ZINC_RMAX.get(),
+            CCIWorldConfig.GEN_ZINC_UNITS.get(),
             COEVeinIds.fromAlias("zinc").orElseThrow()));
         r.add(new Ring("redstone",
             CCIWorldConfig.GEN_REDSTONE_MIN.get(), CCIWorldConfig.GEN_REDSTONE_MAX.get(),
             CCIWorldConfig.GEN_REDSTONE_WEIGHT.get(),
             CCIWorldConfig.GEN_REDSTONE_RMIN.get(), CCIWorldConfig.GEN_REDSTONE_RMAX.get(),
+            CCIWorldConfig.GEN_REDSTONE_UNITS.get(),
             COEVeinIds.fromAlias("redstone").orElseThrow()));
         r.add(new Ring("gold",
             CCIWorldConfig.GEN_GOLD_MIN.get(), CCIWorldConfig.GEN_GOLD_MAX.get(),
             CCIWorldConfig.GEN_GOLD_WEIGHT.get(),
             CCIWorldConfig.GEN_GOLD_RMIN.get(), CCIWorldConfig.GEN_GOLD_RMAX.get(),
+            CCIWorldConfig.GEN_GOLD_UNITS.get(),
             COEVeinIds.fromAlias("gold").orElseThrow()));
         return r;
     }
 
     public static int cellSizeChunks() {
         return CCIWorldConfig.GEN_CELL_SIZE_CHUNKS.get();
+    }
+
+    /** Configured target units-per-chunk for the given recipe id, or -1 if unknown. */
+    public static long unitsForRecipeId(ResourceLocation recipeId) {
+        if (recipeId == null) return -1L;
+        for (Ring r : rings()) {
+            if (r.recipeId().equals(recipeId)) return r.unitsPerChunk();
+        }
+        return -1L;
     }
 
     public static double noVeinChance() {

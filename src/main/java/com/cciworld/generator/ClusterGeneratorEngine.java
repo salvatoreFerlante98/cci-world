@@ -1,5 +1,6 @@
 package com.cciworld.generator;
 
+import com.cciworld.coe.COEFiniteMath;
 import com.cciworld.coe.COEVeinWriter;
 import com.cciworld.config.CCIWorldConfig;
 import com.cciworld.policy.PolicyChunkKey;
@@ -129,7 +130,7 @@ public final class ClusterGeneratorEngine {
 
             try {
                 ClusterDecision decision = ClusterGenerator.decide(level, chunk);
-                writeDecision(chunk, decision);
+                writeDecision(level, chunk, decision);
                 SESSION_CACHE.add(key);
                 totalProcessed++;
                 if (decision.isNoVein()) {
@@ -145,13 +146,27 @@ public final class ClusterGeneratorEngine {
         }
     }
 
-    /** Writes the authoritative OreData state implied by {@code decision}. */
-    public static void writeDecision(LevelChunk chunk, ClusterDecision decision) {
+    /**
+     * Writes the authoritative OreData state implied by {@code decision}.
+     *
+     * <p>For a vein decision the {@code randomMul} is computed from the
+     * configured {@code units_per_chunk} of the chosen ring and the recipe's
+     * own {@code amountMultiplierMin/Max} (see {@link COEFiniteMath}).</p>
+     */
+    public static void writeDecision(ServerLevel level, LevelChunk chunk, ClusterDecision decision) {
         if (decision.isNoVein()) {
             COEVeinWriter.writeNoVein(chunk);
-        } else {
-            COEVeinWriter.writeVein(chunk, decision.finalRecipe(),
-                (float) CCIWorldConfig.RANDOM_MULTIPLIER.get().doubleValue()); // Double -> float
+            return;
         }
+        long units = ClusterGenerator.unitsForRecipeId(decision.finalRecipe());
+        var recipeOpt = COEFiniteMath.findVeinRecipe(level.getServer().getRecipeManager(), decision.finalRecipe());
+        if (recipeOpt.isEmpty()) {
+            // Recipe not found in COE: fallback to legacy randomMul
+            COEVeinWriter.writeVein(chunk, decision.finalRecipe(),
+                (float) CCIWorldConfig.RANDOM_MULTIPLIER.get().doubleValue());
+            return;
+        }
+        var sol = COEFiniteMath.solveRandomMul(recipeOpt.get(), units);
+        COEVeinWriter.writeVein(chunk, decision.finalRecipe(), sol.randomMul());
     }
 }
