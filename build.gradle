@@ -133,46 +133,37 @@ dependencies {
 // -----------------------------------------------------------------------
 // Optional integration runtime — activate with: ./gradlew runClient -PcciIntegration=true
 //
-// Adds cci_radar + JourneyMap + JMI as runtime-only jars so they load alongside
-// cci_world in the dev client. The cci_world compile classpath is NOT affected:
-// no cci_radar or JourneyMap classes are imported by cci_world.
+// Loads any *.jar present in libs/integration/ as runtime-only, so they run
+// alongside cci_world in the dev client. The cci_world compile classpath is
+// NOT affected: no cci_radar or JourneyMap classes are imported by cci_world.
 //
-// cci_radar jar resolution order:
-//   1. ../cci-radar/build/libs/cci_radar-*.jar  (sibling project build output)
-//   2. libs/integration/cci_radar-*.jar         (manual drop-in folder)
+// Expected drop-ins (user-supplied, gitignored):
+//   libs/integration/cci_radar-*.jar  (or cci_scanner-*.jar)
+//   libs/integration/journeymap-*.jar
+//   libs/integration/jmi-*.jar        (optional, JourneyMap Integration)
+//
+// This block does NOT read sibling repos and does NOT reference ../cci-radar.
+// If libs/integration/ is empty or missing, Gradle logs a warning but the
+// build/runClient still succeeds.
 // -----------------------------------------------------------------------
 if (project.hasProperty('cciIntegration')) {
     configurations.runtimeClasspath.extendsFrom configurations.integrationRuntime
 
-    def modpackMods = "C:/Users/sferl/curseforge/minecraft/Instances/Create Aero-Industrial Expedition/mods"
+    def integrationDir = file('libs/integration')
+    def integrationJars = integrationDir.isDirectory()
+            ? fileTree(dir: integrationDir, includes: ['*.jar'], excludes: ['*-sources.jar', '*-javadoc.jar']).files.toSorted()
+            : []
 
-    // JourneyMap full mod + JMI — loaded from the local modpack install
-    dependencies {
-        integrationRuntime files("$modpackMods/journeymap-neoforge-1.21.1-6.0.0-beta.66.jar")
-        integrationRuntime files("$modpackMods/jmi-neoforge-1.21.1-1.9.jar")
-    }
-
-    // cci_radar: scan sibling project build output first, then libs/integration/ drop-in folder
-    def radarJar = null
-    for (dir in [file('../cci-radar/build/libs'), file('libs/integration')]) {
-        if (dir.isDirectory()) {
-            def jars = fileTree(dir: dir, includes: ['cci_radar-*.jar'], excludes: ['*-sources.jar']).files.toSorted()
-            if (!jars.isEmpty()) {
-                radarJar = jars.last()
-                break
-            }
-        }
-    }
-
-    if (radarJar != null) {
-        logger.lifecycle("[CCI World] integration: loading cci_radar from ${radarJar}")
+    if (!integrationJars.isEmpty()) {
+        logger.lifecycle("[CCI World] integration: loading ${integrationJars.size()} jar(s) from libs/integration/")
+        integrationJars.each { jar -> logger.lifecycle("  - ${jar.name}") }
         dependencies {
-            integrationRuntime files(radarJar)
+            integrationRuntime files(integrationJars as Object[])
         }
     } else {
-        logger.warn("[CCI World] integration: cci_radar jar not found — build it first:")
-        logger.warn("  cd ../cci-radar && ./gradlew clean build")
-        logger.warn("  or drop cci_radar-*.jar into libs/integration/")
+        logger.warn("[CCI World] integration: no jars found in libs/integration/")
+        logger.warn("  Drop cci_radar-*.jar (or cci_scanner-*.jar) and journeymap-*.jar into libs/integration/")
+        logger.warn("  Normal runClient will still launch (cci_world standalone).")
     }
 }
 

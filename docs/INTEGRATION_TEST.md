@@ -1,82 +1,89 @@
 # CCI World — Integration Test Guide
 
-Tests cci_world vein replacement in combination with cci_radar + JourneyMap.
-cci_world compiles and runs standalone; this setup is for manual integration testing only.
+Test manuale del comportamento di `cci_world` (sostituzione vene) in combinazione
+con `cci_radar` (o `cci_scanner`) e JourneyMap.
+
+`cci_world` compila e si avvia **standalone**: questa configurazione serve solo
+per test di integrazione manuali e non introduce alcuna dipendenza a compile time.
 
 ---
 
-## Prerequisites
+## Regole
 
-Both repos must sit as siblings under the same parent directory:
-
-```
-IdeaProjects/
-  cci-world/   ← this repo
-  cci-radar/   ← sibling repo
-```
-
-Required runtime jars (from the local modpack install):
-
-```
-journeymap-neoforge-1.21.1-6.0.0-beta.66.jar
-jmi-neoforge-1.21.1-1.9.jar
-```
-
-These are resolved from the CurseForge modpack mods folder automatically.
+- `cci_world` **non** dipende da `cci_radar` / `cci_scanner` a compile time.
+- Nessun import di classi `cci_radar` o JourneyMap nel codice sorgente.
+- I jar di integrazione sono **runtime only** e vivono solo dentro
+  `libs/integration/` di **questa** repo.
+- Gradle **non** legge repo sorelle: nessun riferimento a `../cci-radar` o
+  `../cci-scanner`.
+- `libs/integration/*.jar` è gitignored: i jar non vengono mai committati.
+- Senza jar di integrazione, `./gradlew clean build` e `./gradlew runClient`
+  funzionano normalmente.
 
 ---
 
-## Step 1 — Build cci_radar
+## Setup — copia manuale dei jar
+
+L'utente copia manualmente in `libs/integration/`:
 
 ```
-cd ../cci-radar
+libs/integration/
+├── .gitkeep                          (committato, mantiene la cartella)
+├── cci_radar-<versione>.jar          (oppure cci_scanner-<versione>.jar)
+├── journeymap-neoforge-<versione>.jar
+└── jmi-neoforge-<versione>.jar       (opzionale, JourneyMap Integration)
+```
+
+Tutti i `*.jar` presenti nella cartella vengono caricati come runtime only
+quando si attiva la modalità integrazione. I jar `*-sources.jar` e
+`*-javadoc.jar` sono esclusi automaticamente.
+
+---
+
+## Avvio
+
+### Modalità standalone (default)
+
+```
 ./gradlew clean build
+./gradlew runClient
 ```
 
-Output: `../cci-radar/build/libs/cci_radar-1.0.0.jar`
+Carica solo `cci_world` + `create` + `createoreexcavation`. Nessun jar in
+`libs/integration/` viene letto.
 
-> Alternatively, drop `cci_radar-*.jar` manually into `libs/integration/`.
-> That folder is gitignored — the jar will never be committed.
-
----
-
-## Step 2 — Run integration client
+### Modalità integrazione
 
 ```
-cd ../cci-world
 ./gradlew runClient -PcciIntegration=true
 ```
 
-Gradle will log which cci_radar jar was picked up:
+Gradle elenca a console i jar caricati:
 
 ```
-[CCI World] integration: loading cci_radar from .../cci-radar/build/libs/cci_radar-1.0.0.jar
+[CCI World] integration: loading 3 jar(s) from libs/integration/
+  - cci_radar-1.0.0.jar
+  - journeymap-neoforge-1.21.1-6.0.0-beta.66.jar
+  - jmi-neoforge-1.21.1-1.9.jar
 ```
 
-If the jar is missing, Gradle logs a warning and launches without cci_radar (game still starts).
+Se `libs/integration/` è vuota o mancante, Gradle stampa un **warning** (non un
+errore) e il client parte comunque con il solo `cci_world`.
 
 ---
 
-## Expected loaded mods
+## Mod attesi a runtime
 
-| Mod                 | Source                                 |
-|---------------------|----------------------------------------|
-| cci_world           | this project (sourceSets.main)         |
-| cci_radar           | ../cci-radar/build/libs/ or libs/integration/ |
-| journeymap          | modpack mods folder (localRuntime)     |
-| jmi (JMI)           | modpack mods folder (localRuntime)     |
-| create              | modpack mods folder (localRuntime)     |
-| createoreexcavation | modpack mods folder (localRuntime)     |
-
-Normal `./gradlew runClient` (no property) loads cci_world + create + COE only.
+| Modalità                          | Mod caricati                                                    |
+|-----------------------------------|-----------------------------------------------------------------|
+| `runClient`                       | `cci_world`, `create`, `createoreexcavation`                    |
+| `runClient -PcciIntegration=true` | tutti i precedenti + ogni jar in `libs/integration/` (es. `cci_radar`, `journeymap`, `jmi`) |
 
 ---
 
-## Integration test checklist
+## Checklist test in-game (OP player)
 
-Run these commands in-game as an OP player:
-
-### Phase 1 — baseline
+### Fase 1 — baseline
 
 ```
 /cci_world set_test_vein zinc
@@ -85,9 +92,9 @@ Run these commands in-game as an OP player:
 /cci_radar debug_resource_distribution
 ```
 
-**Expected:** Radar reports zinc vein at current chunk.
+**Atteso:** il radar riporta una vena di **zinc** sul chunk corrente.
 
-### Phase 2 — apply replacement
+### Fase 2 — sostituzione
 
 ```
 /cci_world replace_test_vein zinc copper
@@ -96,36 +103,25 @@ Run these commands in-game as an OP player:
 /cci_radar debug_resource_distribution
 ```
 
-**Expected:**
-- Radar no longer reports zinc at current chunk
-- Radar reports copper at current chunk
-- No stale zinc marker on JourneyMap
-- No crash, no duplicate pebbles/markers
-- `/cci_world debug_chunk` confirms `recipe: createoreexcavation:ore_vein_type/copper`
-
-### Phase 3 — automatic policy smoke test
-
-Walk to a fresh chunk (or use `/cci_world rescan_loaded`), then:
-
-```
-/cci_world policy_status
-/cci_radar debug_resource_distribution
-```
-
-**Expected:** `total applied` counter increments; Radar distribution matches policy replacements.
+**Atteso:**
+- il radar **non** riporta più zinc sul chunk
+- il radar riporta **copper** sul chunk
+- nessun marker stale di zinc su JourneyMap
+- nessun crash, nessun pebble/marker duplicato
 
 ---
 
 ## Troubleshooting
 
-**`cci_radar jar not found` warning at Gradle startup:**
-Build cci_radar first (`cd ../cci-radar && ./gradlew clean build`) or drop the jar in `libs/integration/`.
+**Warning `no jars found in libs/integration/`:**
+copiare manualmente almeno il jar `cci_radar` (o `cci_scanner`) e il jar di
+JourneyMap nella cartella, poi rilanciare con `-PcciIntegration=true`.
 
-**Configuration cache stale after cci_radar rebuild:**
-If Gradle serves a cached config that misses an updated jar, force re-configuration once:
+**Configuration cache stale dopo aver aggiornato un jar:**
 ```
 ./gradlew runClient -PcciIntegration=true --no-configuration-cache
 ```
 
-**JourneyMap fails to load:**
-Verify `journeymap-neoforge-1.21.1-6.0.0-beta.66.jar` and `jmi-neoforge-1.21.1-1.9.jar` exist in the CurseForge modpack mods folder. Update the paths in `build.gradle` if the modpack install location differs.
+**Conflitti di versione tra mod:**
+rimuovere dalla cartella `libs/integration/` i jar non necessari; vengono
+caricati tutti i `*.jar` presenti.
