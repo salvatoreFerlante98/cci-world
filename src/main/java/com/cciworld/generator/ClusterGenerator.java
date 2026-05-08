@@ -38,6 +38,27 @@ public final class ClusterGenerator {
     private static final long SALT_RADIUS  = 0x7261646975735F5FL; // "radius__"
     private static final long SALT_PICK    = 0x636C75737465725FL; // "cluster_"
 
+    public static final String EMPTY_BAND_NEAR = "near";
+    public static final String EMPTY_BAND_MID  = "mid";
+    public static final String EMPTY_BAND_FAR  = "far";
+
+    public static int emptyWeightForBand(String band) {
+        return switch (band) {
+            case EMPTY_BAND_NEAR -> CCIWorldConfig.GEN_EMPTY_WEIGHT_NEAR.get();
+            case EMPTY_BAND_MID  -> CCIWorldConfig.GEN_EMPTY_WEIGHT_MID.get();
+            case EMPTY_BAND_FAR  -> CCIWorldConfig.GEN_EMPTY_WEIGHT_FAR.get();
+            default -> 0;
+        };
+    }
+
+    public static String classifyEmptyBand(int centerDistanceBlocks) {
+        int nearMax = CCIWorldConfig.GEN_EMPTY_NEAR_MAX_BLOCKS.get();
+        int midMax  = CCIWorldConfig.GEN_EMPTY_MID_MAX_BLOCKS.get();
+        if (centerDistanceBlocks <= nearMax) return EMPTY_BAND_NEAR;
+        if (centerDistanceBlocks <= midMax)  return EMPTY_BAND_MID;
+        return EMPTY_BAND_FAR;
+    }
+
     private ClusterGenerator() {}
 
     /** Resource ring: distance-from-spawn band, weight, radius range (blocks), units per chunk. */
@@ -118,16 +139,26 @@ public final class ClusterGenerator {
         BlockPos spawn = level.getSharedSpawnPos();
         int chunkCenterX = (cx << 4) + 8;
         int chunkCenterZ = (cz << 4) + 8;
-        long ddx = chunkCenterX - spawn.getX();
-        long ddz = chunkCenterZ - spawn.getZ();
-        int distance = (int) Math.round(Math.sqrt((double) (ddx * ddx + ddz * ddz)));
 
         // Biome at chunk center (informational only, no biome logic in v0.5.1)
         int sampleY = CCIWorldConfig.BIOME_SAMPLE_Y.get();
         Holder<Biome> biomeHolder = level.getBiome(new BlockPos(chunkCenterX, sampleY, chunkCenterZ));
         ResourceLocation biomeId = biomeHolder.unwrapKey().map(k -> k.location()).orElse(null);
 
-        long worldSeed = level.getSeed();
+        return decidePure(level.getSeed(), spawn.getX(), spawn.getZ(), cx, cz, biomeId);
+    }
+
+    /**
+     * Pure, read-only decision. No ServerLevel / LevelChunk required, no biome
+     * sampling, no I/O. Used by {@code /cci_world simulate_distribution}.
+     */
+    public static ClusterDecision decidePure(long worldSeed, int spawnX, int spawnZ,
+                                             int cx, int cz, ResourceLocation biomeId) {
+        int chunkCenterX = (cx << 4) + 8;
+        int chunkCenterZ = (cz << 4) + 8;
+        long ddx = chunkCenterX - spawnX;
+        long ddz = chunkCenterZ - spawnZ;
+        int distance = (int) Math.round(Math.sqrt((double) (ddx * ddx + ddz * ddz)));
 
         int cellSize = cellSizeChunks();
         int cellX = cellOf(cx, cellSize);
@@ -136,11 +167,13 @@ public final class ClusterGenerator {
         long cellHash = splitmix(worldSeed ^ SALT_CELL, cellX, cellZ);
         double rollNoVein = toUnit(cellHash);
 
-        // Cell-level no-vein roll: if hit, the whole cell is barren.
+        // Cell-level base no-vein roll: if hit, the whole cell is barren BEFORE
+        // the weighted pick even runs.
         if (rollNoVein < noVeinChance()) {
             return new ClusterDecision(cx, cz, distance, biomeId,
                 cellX, cellZ, 0, 0, 0, 0,
-                null, "no_vein_cell_roll", cellHash, rollNoVein);
+                null, "no_vein_cell_roll", cellHash, rollNoVein,
+                rollNoVein, 0.0, 0, 0, false, "");
         }
 
         // Cluster center: pick a (blockX,blockZ) deterministically inside the cell.
@@ -148,21 +181,29 @@ public final class ClusterGenerator {
         int cellOriginX = cellX * cellSizeBlocks;
         int cellOriginZ = cellZ * cellSizeBlocks;
         long centerHash = splitmix(worldSeed ^ SALT_CENTER, cellX, cellZ);
-        // split centerHash into two 32-bit halves to pick X and Z offsets
         int offX = (int) Math.floorMod(centerHash >>> 32, (long) cellSizeBlocks);
         int offZ = (int) Math.floorMod(centerHash & 0xFFFFFFFFL, (long) cellSizeBlocks);
         int centerX = cellOriginX + offX;
         int centerZ = cellOriginZ + offZ;
 
-        // Cluster ring: pick using the SPAWN-distance of the cluster center (so the
-        // whole cluster shares the same ring choice).
-        long centerDx = centerX - spawn.getX();
-        long centerDz = centerZ - spawn.getZ();
+        long centerDx = centerX - spawnX;
+        long centerDz = centerZ - spawnZ;
         int centerDistance = (int) Math.round(Math.sqrt((double)(centerDx * centerDx + centerDz * centerDz)));
+
+        // Distance from the chunk's center to the cluster center
+        long fdx = chunkCenterX - centerX;
+        long fdz = chunkCenterZ - centerZ;
+        int distFromCenter = (int) Math.round(Math.sqrt((double)(fdx * fdx + fdz * fdz)));
+
+        // v0.7.1 — synthetic EMPTY candidate added to the weighted pick.
+        // Even if a single resource is the only valid ring, EMPTY can still win,
+        // so far rings (gold-only) do NOT collapse all non-empty cells onto gold.
+        String emptyBand = classifyEmptyBand(centerDistance);
+        int emptyWeight  = emptyWeightForBand(emptyBand);
 
         List<Ring> rings = rings();
         List<Ring> candidates = new ArrayList<>(rings.size());
-        int totalWeight = 0;
+        int totalWeight = emptyWeight;
         for (Ring r : rings) {
             if (centerDistance >= r.minBlocks() && centerDistance <= r.maxBlocks()) {
                 candidates.add(r);
@@ -170,15 +211,12 @@ public final class ClusterGenerator {
             }
         }
 
-        // Distance from the chunk's center to the cluster center
-        long fdx = chunkCenterX - centerX;
-        long fdz = chunkCenterZ - centerZ;
-        int distFromCenter = (int) Math.round(Math.sqrt((double)(fdx * fdx + fdz * fdz)));
-
-        if (candidates.isEmpty() || totalWeight <= 0) {
+        if (totalWeight <= 0) {
+            // No resource ring matched AND empty weight is 0 → barren by construction.
             return new ClusterDecision(cx, cz, distance, biomeId,
                 cellX, cellZ, centerX, centerZ, 0, distFromCenter,
-                null, "out_of_all_rings", cellHash, rollNoVein);
+                null, "out_of_all_rings", cellHash, rollNoVein,
+                rollNoVein, 0.0, 0, emptyWeight, false, emptyBand);
         }
 
         long pickHash = splitmix(worldSeed ^ SALT_PICK, cellX, cellZ);
@@ -186,7 +224,24 @@ public final class ClusterGenerator {
         int target = (int) Math.floor(rollPick * totalWeight);
         if (target >= totalWeight) target = totalWeight - 1;
 
-        int acc = 0;
+        // EMPTY occupies the first slice [0, emptyWeight).
+        if (target < emptyWeight) {
+            return new ClusterDecision(cx, cz, distance, biomeId,
+                cellX, cellZ, centerX, centerZ, 0, distFromCenter,
+                null, "weighted_empty:" + emptyBand, cellHash, rollPick,
+                rollNoVein, rollPick, totalWeight, emptyWeight, true, emptyBand);
+        }
+
+        if (candidates.isEmpty()) {
+            // Defensive: should not happen because totalWeight>emptyWeight implies
+            // at least one ring contributed, but keep a safe fallback.
+            return new ClusterDecision(cx, cz, distance, biomeId,
+                cellX, cellZ, centerX, centerZ, 0, distFromCenter,
+                null, "out_of_all_rings", cellHash, rollNoVein,
+                rollNoVein, rollPick, totalWeight, emptyWeight, false, emptyBand);
+        }
+
+        int acc = emptyWeight;
         Ring chosen = candidates.get(candidates.size() - 1);
         for (Ring r : candidates) {
             acc += r.weight();
@@ -205,12 +260,14 @@ public final class ClusterGenerator {
         if (distFromCenter > radius) {
             return new ClusterDecision(cx, cz, distance, biomeId,
                 cellX, cellZ, centerX, centerZ, radius, distFromCenter,
-                null, "outside_cluster_radius:" + chosen.alias(), cellHash, rollPick);
+                null, "outside_cluster_radius:" + chosen.alias(), cellHash, rollPick,
+                rollNoVein, rollPick, totalWeight, emptyWeight, false, emptyBand);
         }
 
         return new ClusterDecision(cx, cz, distance, biomeId,
             cellX, cellZ, centerX, centerZ, radius, distFromCenter,
-            chosen.recipeId(), "in_cluster:" + chosen.alias(), cellHash, rollPick);
+            chosen.recipeId(), "in_cluster:" + chosen.alias(), cellHash, rollPick,
+            rollNoVein, rollPick, totalWeight, emptyWeight, false, emptyBand);
     }
 
     // -- deterministic hashing -----------------------------------------------

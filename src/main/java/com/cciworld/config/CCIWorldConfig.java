@@ -48,6 +48,13 @@ public final class CCIWorldConfig {
     public static final ModConfigSpec.IntValue GEN_CELL_SIZE_CHUNKS;
     public static final ModConfigSpec.DoubleValue GEN_NO_VEIN_CHANCE;
 
+    // v0.7.1 — weighted EMPTY candidate (per spawn-distance band)
+    public static final ModConfigSpec.IntValue GEN_EMPTY_WEIGHT_NEAR;
+    public static final ModConfigSpec.IntValue GEN_EMPTY_WEIGHT_MID;
+    public static final ModConfigSpec.IntValue GEN_EMPTY_WEIGHT_FAR;
+    public static final ModConfigSpec.IntValue GEN_EMPTY_NEAR_MAX_BLOCKS;
+    public static final ModConfigSpec.IntValue GEN_EMPTY_MID_MAX_BLOCKS;
+
     // Per-resource ring config (min/max distance in blocks, weight, radius range in blocks)
     public static final ModConfigSpec.IntValue GEN_COAL_MIN, GEN_COAL_MAX, GEN_COAL_WEIGHT, GEN_COAL_RMIN, GEN_COAL_RMAX;
     public static final ModConfigSpec.LongValue GEN_COAL_UNITS;
@@ -226,12 +233,28 @@ public final class CCIWorldConfig {
             .defineInRange("max_pending_policy_jobs", 8192, 1, 65536);
 
         GEN_CELL_SIZE_CHUNKS = builder
-            .comment("Side length, in chunks, of each cluster cell. Each cell deterministically contains at most one cluster.")
-            .defineInRange("cell_size_chunks", 8, 1, 64);
+            .comment("Side length, in chunks, of each cluster cell. Each cell deterministically contains at most one cluster. v0.7.2 preset: 24 (larger cells -> rarer clusters near spawn).")
+            .defineInRange("cell_size_chunks", 24, 1, 64);
 
         GEN_NO_VEIN_CHANCE = builder
-            .comment("Probability [0..1] that a cell has NO cluster at all (forced no-vein for the whole cell).")
-            .defineInRange("no_vein_chance", 0.30, 0.0, 1.0);
+            .comment("Probability [0..1] that a cell is forced barren BEFORE the weighted resource pick (base no-vein roll). v0.7.2 preset: 0.70.")
+            .defineInRange("no_vein_chance", 0.70, 0.0, 1.0);
+
+        GEN_EMPTY_WEIGHT_NEAR = builder
+            .comment("Weight of the synthetic EMPTY candidate added to the cell weighted pick when the cluster center is in the NEAR distance band (<= empty_near_max_blocks). Higher = more no-vein. v0.7.2 preset: 350. Density near spawn is intentionally rare: the player must find Tier 0 nearby, but not dozens of clusters.")
+            .defineInRange("empty_weight_near", 350, 0, Integer.MAX_VALUE);
+        GEN_EMPTY_WEIGHT_MID = builder
+            .comment("Weight of the synthetic EMPTY candidate when the cluster center is in the MID distance band (<= empty_mid_max_blocks). v0.7.2 preset: 550.")
+            .defineInRange("empty_weight_mid", 550, 0, Integer.MAX_VALUE);
+        GEN_EMPTY_WEIGHT_FAR = builder
+            .comment("Weight of the synthetic EMPTY candidate when the cluster center is in the FAR distance band (> empty_mid_max_blocks). v0.7.2 preset: 900.")
+            .defineInRange("empty_weight_far", 900, 0, Integer.MAX_VALUE);
+        GEN_EMPTY_NEAR_MAX_BLOCKS = builder
+            .comment("Upper bound (blocks from spawn) of the NEAR band used for empty_weight_near.")
+            .defineInRange("empty_near_max_blocks", 1200, 0, Integer.MAX_VALUE);
+        GEN_EMPTY_MID_MAX_BLOCKS = builder
+            .comment("Upper bound (blocks from spawn) of the MID band used for empty_weight_mid. Beyond this, empty_weight_far applies.")
+            .defineInRange("empty_mid_max_blocks", 2200, 0, Integer.MAX_VALUE);
 
         builder.push("rings");
         builder.push("coal");
@@ -239,7 +262,7 @@ public final class CCIWorldConfig {
         GEN_COAL_MAX    = builder.defineInRange("max_distance_blocks", 1200, 0, Integer.MAX_VALUE);
         GEN_COAL_WEIGHT = builder.defineInRange("weight",              50,   0, Integer.MAX_VALUE);
         GEN_COAL_RMIN   = builder.defineInRange("radius_min_blocks",   24,   1, 4096);
-        GEN_COAL_RMAX   = builder.defineInRange("radius_max_blocks",   64,   1, 4096);
+        GEN_COAL_RMAX   = builder.defineInRange("radius_max_blocks",   40,   1, 4096);
         GEN_COAL_UNITS  = builder.comment("Finite units per chunk inside a coal cluster (target).").defineInRange("units_per_chunk", 25000L, 0L, Long.MAX_VALUE);
         builder.pop();
         builder.push("iron");
@@ -247,30 +270,30 @@ public final class CCIWorldConfig {
         GEN_IRON_MAX    = builder.defineInRange("max_distance_blocks", 1200, 0, Integer.MAX_VALUE);
         GEN_IRON_WEIGHT = builder.defineInRange("weight",              40,   0, Integer.MAX_VALUE);
         GEN_IRON_RMIN   = builder.defineInRange("radius_min_blocks",   24,   1, 4096);
-        GEN_IRON_RMAX   = builder.defineInRange("radius_max_blocks",   56,   1, 4096);
+        GEN_IRON_RMAX   = builder.defineInRange("radius_max_blocks",   40,   1, 4096);
         GEN_IRON_UNITS  = builder.comment("Finite units per chunk inside an iron cluster (target).").defineInRange("units_per_chunk", 15000L, 0L, Long.MAX_VALUE);
         builder.pop();
         builder.push("copper");
         GEN_COPPER_MIN    = builder.defineInRange("min_distance_blocks", 0,    0, Integer.MAX_VALUE);
         GEN_COPPER_MAX    = builder.defineInRange("max_distance_blocks", 1200, 0, Integer.MAX_VALUE);
         GEN_COPPER_WEIGHT = builder.defineInRange("weight",              35,   0, Integer.MAX_VALUE);
-        GEN_COPPER_RMIN   = builder.defineInRange("radius_min_blocks",   20,   1, 4096);
-        GEN_COPPER_RMAX   = builder.defineInRange("radius_max_blocks",   48,   1, 4096);
+        GEN_COPPER_RMIN   = builder.defineInRange("radius_min_blocks",   24,   1, 4096);
+        GEN_COPPER_RMAX   = builder.defineInRange("radius_max_blocks",   40,   1, 4096);
         GEN_COPPER_UNITS  = builder.comment("Finite units per chunk inside a copper cluster (target).").defineInRange("units_per_chunk", 15000L, 0L, Long.MAX_VALUE);
         builder.pop();
         builder.push("zinc");
         GEN_ZINC_MIN    = builder.defineInRange("min_distance_blocks", 400,  0, Integer.MAX_VALUE);
         GEN_ZINC_MAX    = builder.defineInRange("max_distance_blocks", 2200, 0, Integer.MAX_VALUE);
         GEN_ZINC_WEIGHT = builder.defineInRange("weight",              20,   0, Integer.MAX_VALUE);
-        GEN_ZINC_RMIN   = builder.defineInRange("radius_min_blocks",   16,   1, 4096);
-        GEN_ZINC_RMAX   = builder.defineInRange("radius_max_blocks",   40,   1, 4096);
+        GEN_ZINC_RMIN   = builder.defineInRange("radius_min_blocks",   18,   1, 4096);
+        GEN_ZINC_RMAX   = builder.defineInRange("radius_max_blocks",   32,   1, 4096);
         GEN_ZINC_UNITS  = builder.comment("Finite units per chunk inside a zinc cluster (target).").defineInRange("units_per_chunk", 10000L, 0L, Long.MAX_VALUE);
         builder.pop();
         builder.push("redstone");
         GEN_REDSTONE_MIN    = builder.defineInRange("min_distance_blocks", 700,  0, Integer.MAX_VALUE);
         GEN_REDSTONE_MAX    = builder.defineInRange("max_distance_blocks", 3000, 0, Integer.MAX_VALUE);
         GEN_REDSTONE_WEIGHT = builder.defineInRange("weight",              10,   0, Integer.MAX_VALUE);
-        GEN_REDSTONE_RMIN   = builder.defineInRange("radius_min_blocks",   12,   1, 4096);
+        GEN_REDSTONE_RMIN   = builder.defineInRange("radius_min_blocks",   18,   1, 4096);
         GEN_REDSTONE_RMAX   = builder.defineInRange("radius_max_blocks",   32,   1, 4096);
         GEN_REDSTONE_UNITS  = builder.comment("Finite units per chunk inside a redstone cluster (target). NOTE: units_per_chunk must lie inside the reachable COE finite range [amountMultiplierMin*finiteAmountBase, amountMultiplierMax*finiteAmountBase] of the recipe, otherwise the solver will clamp. Redstone reachable range with default base=1000 is 10000..30000.").defineInRange("units_per_chunk", 10000L, 0L, Long.MAX_VALUE);
         builder.pop();
@@ -279,7 +302,7 @@ public final class CCIWorldConfig {
         GEN_GOLD_MAX    = builder.defineInRange("max_distance_blocks", 4000, 0, Integer.MAX_VALUE);
         GEN_GOLD_WEIGHT = builder.defineInRange("weight",              6,    0, Integer.MAX_VALUE);
         GEN_GOLD_RMIN   = builder.defineInRange("radius_min_blocks",   12,   1, 4096);
-        GEN_GOLD_RMAX   = builder.defineInRange("radius_max_blocks",   28,   1, 4096);
+        GEN_GOLD_RMAX   = builder.defineInRange("radius_max_blocks",   22,   1, 4096);
         GEN_GOLD_UNITS  = builder.comment("Finite units per chunk inside a gold cluster (target).").defineInRange("units_per_chunk", 4000L, 0L, Long.MAX_VALUE);
         builder.pop();
         builder.pop(); // rings

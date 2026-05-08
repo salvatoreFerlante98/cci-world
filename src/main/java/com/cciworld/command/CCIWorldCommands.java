@@ -89,6 +89,9 @@ public final class CCIWorldCommands {
                     .executes(CCIWorldCommands::generatorStatus))
                 .then(Commands.literal("selftest_generator")
                     .executes(CCIWorldCommands::selftestGenerator))
+                .then(Commands.literal("simulate_distribution")
+                    .then(Commands.argument("radius_blocks", IntegerArgumentType.integer(16, 100_000))
+                        .executes(CCIWorldCommands::simulateDistribution)))
         );
     }
 
@@ -1182,6 +1185,10 @@ public final class CCIWorldCommands {
                     solveNote = "recipe not found in COE";
                 }
             }
+            String weightedSel = decision.weightedPickedEmpty()
+                ? "EMPTY (band=" + decision.emptyBand() + ")"
+                : (decision.isNoVein() ? "n/a" : "RESOURCE:" + resStr);
+
             String msg = "[CCI World] debug_generator_here" +
                 "\n  dimension:           " + level.dimension().location() +
                 "\n  chunk x/z:           " + decision.chunkX() + " / " + decision.chunkZ() +
@@ -1196,6 +1203,13 @@ public final class CCIWorldCommands {
                 "\n  cluster_id (hash):   " + Long.toHexString(decision.clusterId()) +
                 "\n  final recipe:        " + (decision.isNoVein() ? "null (no-vein)" : decision.finalRecipe()) +
                 "\n  reason:              " + decision.reason() +
+                "\n  base no-vein roll:   " + String.format(java.util.Locale.ROOT, "%.6f", decision.baseNoVeinRoll())
+                    + " (no_vein_chance=" + CCIWorldConfig.GEN_NO_VEIN_CHANCE.get() + ")" +
+                "\n  empty band:          " + (decision.emptyBand().isEmpty() ? "n/a (base no-vein)" : decision.emptyBand()) +
+                "\n  empty weight:        " + decision.emptyWeight() +
+                "\n  weighted total:      " + decision.weightedTotalWeight() +
+                "\n  weighted roll:       " + String.format(java.util.Locale.ROOT, "%.6f", decision.weightedRollPick()) +
+                "\n  weighted selection:  " + weightedSel +
                 "\n  random_roll:         " + String.format(java.util.Locale.ROOT, "%.6f", decision.roll()) +
                 "\n  configured units:    " + unitsStr +
                 "\n  finite recipe:       " + finiteStr +
@@ -1230,14 +1244,22 @@ public final class CCIWorldCommands {
                   ? " [SUPPRESSED — authoritative owns OreData]" : "");
             sb.append("\n  cell_size_chunks:    ").append(CCIWorldConfig.GEN_CELL_SIZE_CHUNKS.get());
             sb.append("\n  no_vein_chance:      ").append(CCIWorldConfig.GEN_NO_VEIN_CHANCE.get());
+            sb.append("\n  empty_weight near:   ").append(CCIWorldConfig.GEN_EMPTY_WEIGHT_NEAR.get())
+              .append(" (<=").append(CCIWorldConfig.GEN_EMPTY_NEAR_MAX_BLOCKS.get()).append(" blocks)");
+            sb.append("\n  empty_weight mid:    ").append(CCIWorldConfig.GEN_EMPTY_WEIGHT_MID.get())
+              .append(" (<=").append(CCIWorldConfig.GEN_EMPTY_MID_MAX_BLOCKS.get()).append(" blocks)");
+            sb.append("\n  empty_weight far:    ").append(CCIWorldConfig.GEN_EMPTY_WEIGHT_FAR.get())
+              .append(" (>").append(CCIWorldConfig.GEN_EMPTY_MID_MAX_BLOCKS.get()).append(" blocks)");
             sb.append("\n  finite_amount_base:  ").append(com.cciworld.coe.COEFiniteMath.finiteAmountBase());
-            sb.append("\n  units_per_chunk:");
-            sb.append("\n    coal:     ").append(CCIWorldConfig.GEN_COAL_UNITS.get());
-            sb.append("\n    iron:     ").append(CCIWorldConfig.GEN_IRON_UNITS.get());
-            sb.append("\n    copper:   ").append(CCIWorldConfig.GEN_COPPER_UNITS.get());
-            sb.append("\n    zinc:     ").append(CCIWorldConfig.GEN_ZINC_UNITS.get());
-            sb.append("\n    redstone: ").append(CCIWorldConfig.GEN_REDSTONE_UNITS.get());
-            sb.append("\n    gold:     ").append(CCIWorldConfig.GEN_GOLD_UNITS.get());
+            sb.append("\n  rings:");
+            for (ClusterGenerator.Ring r : ClusterGenerator.rings()) {
+                sb.append("\n    ").append(r.alias()).append(":");
+                sb.append("\n      min_distance:    ").append(r.minBlocks()).append(" blocks");
+                sb.append("\n      max_distance:    ").append(r.maxBlocks()).append(" blocks");
+                sb.append("\n      weight:          ").append(r.weight());
+                sb.append("\n      radius_min/max:  ").append(r.radiusMinBlocks()).append(" / ").append(r.radiusMaxBlocks()).append(" blocks");
+                sb.append("\n      units_per_chunk: ").append(r.unitsPerChunk());
+            }
             sb.append("\n  chunks_per_tick:     ").append(CCIWorldConfig.GEN_CHUNKS_PER_TICK.get());
             sb.append("\n  max_pending_jobs:    ").append(CCIWorldConfig.MAX_PENDING_GEN_JOBS.get());
             sb.append("\n  queue size:          ").append(ClusterGeneratorEngine.getQueueSize());
@@ -1375,6 +1397,116 @@ public final class CCIWorldCommands {
                 }
             }
 
+            // 6c. Pure simulation determinism + non-empty + no-write (Task D, v0.7)
+            long sseed = level.getSeed();
+            BlockPos sspawn = level.getSharedSpawnPos();
+            int sx = sspawn.getX(), sz = sspawn.getZ();
+            int simRadius = 3000;
+            int simRadiusChunks = (simRadius + 15) >> 4;
+            long simRadiusSqr = (long) simRadius * (long) simRadius;
+            int spawnCx = SectionPos.blockToSectionCoord(sx);
+            int spawnCz = SectionPos.blockToSectionCoord(sz);
+            java.util.Map<String, Integer> simCounts1 = new java.util.LinkedHashMap<>();
+            int simChunks1 = 0, simNoVein1 = 0;
+            // Snapshot OreData on the player's chunk to verify simulation does not write
+            OreData snapshot = OreDataAttachment.getData(chunk);
+            ResourceLocation beforeId = snapshot.getRecipeId();
+            boolean beforeLoaded = snapshot.isLoaded();
+            float beforeMul = snapshot.getRandomMul();
+            for (int dx = -simRadiusChunks; dx <= simRadiusChunks; dx++) {
+                for (int dz = -simRadiusChunks; dz <= simRadiusChunks; dz++) {
+                    int cx = spawnCx + dx, cz = spawnCz + dz;
+                    long bx = ((long) (cx << 4) + 8) - sx;
+                    long bz = ((long) (cz << 4) + 8) - sz;
+                    if (bx * bx + bz * bz > simRadiusSqr) continue;
+                    simChunks1++;
+                    ClusterDecision dd = ClusterGenerator.decidePure(sseed, sx, sz, cx, cz, null);
+                    if (dd.isNoVein()) simNoVein1++;
+                    else {
+                        ClusterGenerator.Ring rr = null;
+                        for (ClusterGenerator.Ring r : ClusterGenerator.rings()) if (r.recipeId().equals(dd.finalRecipe())) { rr = r; break; }
+                        simCounts1.merge(rr != null ? rr.alias() : dd.finalRecipe().toString(), 1, Integer::sum);
+                    }
+                }
+            }
+            // Same simulation again to assert determinism on aggregate counts
+            java.util.Map<String, Integer> simCounts2 = new java.util.LinkedHashMap<>();
+            int simChunks2 = 0, simNoVein2 = 0;
+            for (int dx = -simRadiusChunks; dx <= simRadiusChunks; dx++) {
+                for (int dz = -simRadiusChunks; dz <= simRadiusChunks; dz++) {
+                    int cx = spawnCx + dx, cz = spawnCz + dz;
+                    long bx = ((long) (cx << 4) + 8) - sx;
+                    long bz = ((long) (cz << 4) + 8) - sz;
+                    if (bx * bx + bz * bz > simRadiusSqr) continue;
+                    simChunks2++;
+                    ClusterDecision dd = ClusterGenerator.decidePure(sseed, sx, sz, cx, cz, null);
+                    if (dd.isNoVein()) simNoVein2++;
+                    else {
+                        ClusterGenerator.Ring rr = null;
+                        for (ClusterGenerator.Ring r : ClusterGenerator.rings()) if (r.recipeId().equals(dd.finalRecipe())) { rr = r; break; }
+                        simCounts2.merge(rr != null ? rr.alias() : dd.finalRecipe().toString(), 1, Integer::sum);
+                    }
+                }
+            }
+            if (simChunks1 == simChunks2 && simNoVein1 == simNoVein2 && simCounts1.equals(simCounts2))
+                pass(sb, stats, "simulate determinism: " + simChunks1 + " chunks, no-vein=" + simNoVein1);
+            else
+                fail(sb, stats, "simulate non-deterministic: chunks " + simChunks1 + "/" + simChunks2
+                    + " no-vein " + simNoVein1 + "/" + simNoVein2);
+            // No-vein must exist somewhere within sample
+            if (simNoVein1 > 0) pass(sb, stats, "no-vein chunks found in sim: " + simNoVein1);
+            else fail(sb, stats, "no no-vein chunks within radius=" + simRadius
+                + " (no_vein_chance=" + CCIWorldConfig.GEN_NO_VEIN_CHANCE.get() + ")");
+            // At least one resource generated within reasonable radius
+            int simVein1 = simChunks1 - simNoVein1;
+            if (simVein1 > 0 && !simCounts1.isEmpty())
+                pass(sb, stats, "at least one resource within " + simRadius + " blocks: " + simCounts1);
+            else
+                fail(sb, stats, "no useful vein chunks within " + simRadius + " blocks");
+            // Verify OreData on player's chunk was NOT modified by simulation
+            OreData snapshotAfter = OreDataAttachment.getData(chunk);
+            boolean simNoWrite = java.util.Objects.equals(snapshotAfter.getRecipeId(), beforeId)
+                && snapshotAfter.isLoaded() == beforeLoaded
+                && snapshotAfter.getRandomMul() == beforeMul;
+            if (simNoWrite) pass(sb, stats, "simulate did NOT write OreData on player's chunk");
+            else fail(sb, stats, "simulate altered OreData unexpectedly: recipe " + beforeId + "->" + snapshotAfter.getRecipeId());
+
+            // 6d. v0.7.1 — empty candidate must dominate gold-only far ring.
+            // Sample chunks at ring distance ~ [3300, 3800] from spawn (only gold qualifies)
+            // and verify that NOT all of them are gold: empty must keep most cells barren.
+            int farTotal = 0, farGold = 0, farEmpty = 0, farWeightedEmpty = 0;
+            for (int dxc = -240; dxc <= 240; dxc += 8) {
+                for (int dzc = -240; dzc <= 240; dzc += 8) {
+                    int cx2 = spawnCx + dxc, cz2 = spawnCz + dzc;
+                    long bx2 = ((long) (cx2 << 4) + 8) - sx;
+                    long bz2 = ((long) (cz2 << 4) + 8) - sz;
+                    long sqd = bx2 * bx2 + bz2 * bz2;
+                    if (sqd < 3300L * 3300L || sqd > 3800L * 3800L) continue;
+                    farTotal++;
+                    ClusterDecision dd = ClusterGenerator.decidePure(sseed, sx, sz, cx2, cz2, null);
+                    if (dd.isNoVein()) {
+                        farEmpty++;
+                        if (dd.isWeightedEmpty()) farWeightedEmpty++;
+                    } else {
+                        ClusterGenerator.Ring rr = null;
+                        for (ClusterGenerator.Ring r : ClusterGenerator.rings()) if (r.recipeId().equals(dd.finalRecipe())) { rr = r; break; }
+                        if (rr != null && "gold".equals(rr.alias())) farGold++;
+                    }
+                }
+            }
+            if (farTotal >= 50) {
+                double goldRatio = farGold / (double) farTotal;
+                if (goldRatio < 0.50)
+                    pass(sb, stats, "far gold-only ring not collapsed onto gold: gold=" + farGold
+                        + " empty=" + farEmpty + " (weighted=" + farWeightedEmpty + ") of " + farTotal
+                        + " (gold ratio=" + String.format(java.util.Locale.ROOT, "%.2f", goldRatio) + ")");
+                else
+                    fail(sb, stats, "far ring collapsed onto gold: gold=" + farGold + "/" + farTotal
+                        + " — increase empty_weight_far or decrease gold weight");
+            } else {
+                pass(sb, stats, "far ring sample too small (" + farTotal + " chunks) — skipped collapse check");
+            }
+
             // 7. Write the decision and read back
             ClusterGeneratorEngine.writeDecision(level, chunk, d1);
             OreData after = OreDataAttachment.getData(chunk);
@@ -1412,5 +1544,246 @@ public final class CCIWorldCommands {
     private static void fail(StringBuilder sb, int[] stats, String detail) {
         sb.append("\n[FAIL] ").append(detail);
         stats[1]++;
+    }
+
+    // -------------------------------------------------------------------------
+    // v0.7 — simulate_distribution <radius_blocks>
+    // -------------------------------------------------------------------------
+
+    /**
+     * Pure read-only summary of a single chunk simulation (used inside the
+     * cluster aggregation map). Does NOT touch the world.
+     */
+    private static final class ClusterSummary {
+        final String alias;
+        final long clusterId;
+        final int cellX, cellZ;
+        final int centerX, centerZ;
+        final int radius;
+        int chunks = 0;
+        int distanceFromSpawnAtCenter;
+        ClusterSummary(String alias, long clusterId, int cellX, int cellZ,
+                       int centerX, int centerZ, int radius, int distSpawn) {
+            this.alias = alias; this.clusterId = clusterId;
+            this.cellX = cellX; this.cellZ = cellZ;
+            this.centerX = centerX; this.centerZ = centerZ;
+            this.radius = radius; this.distanceFromSpawnAtCenter = distSpawn;
+        }
+    }
+
+    private static int simulateDistribution(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        int radius = IntegerArgumentType.getInteger(ctx, "radius_blocks");
+        try {
+            ServerLevel level = src.getLevel();
+            long seed = level.getSeed();
+            BlockPos spawn = level.getSharedSpawnPos();
+            int spawnX = spawn.getX();
+            int spawnZ = spawn.getZ();
+
+            int spawnCx = SectionPos.blockToSectionCoord(spawnX);
+            int spawnCz = SectionPos.blockToSectionCoord(spawnZ);
+            int radiusChunks = (radius + 15) >> 4;
+
+            // Aggregators
+            int chunksSimulated = 0;
+            int noVeinChunks = 0;
+            int emptyByBase = 0;
+            int emptyByWeighted = 0;
+            int emptyByOutOfRings = 0;
+            int emptyByOutsideRadius = 0;
+            int veinChunks = 0;
+            java.util.Map<String, Integer> chunksByResource = new java.util.LinkedHashMap<>();
+            java.util.Map<String, Long> unitsByResource = new java.util.LinkedHashMap<>();
+            java.util.Map<Long, ClusterSummary> clusters = new java.util.LinkedHashMap<>();
+            java.util.Set<Long> cellsSeen = new java.util.HashSet<>();
+
+            // Pre-build alias->units lookup from current rings to estimate units quickly.
+            java.util.Map<ResourceLocation, ClusterGenerator.Ring> ringByRecipe = new java.util.HashMap<>();
+            for (ClusterGenerator.Ring r : ClusterGenerator.rings()) ringByRecipe.put(r.recipeId(), r);
+
+            long radiusSqr = (long) radius * (long) radius;
+
+            for (int dx = -radiusChunks; dx <= radiusChunks; dx++) {
+                for (int dz = -radiusChunks; dz <= radiusChunks; dz++) {
+                    int cx = spawnCx + dx;
+                    int cz = spawnCz + dz;
+                    int blockCenterX = (cx << 4) + 8;
+                    int blockCenterZ = (cz << 4) + 8;
+                    long ddx = blockCenterX - spawnX;
+                    long ddz = blockCenterZ - spawnZ;
+                    if (ddx * ddx + ddz * ddz > radiusSqr) continue;
+
+                    chunksSimulated++;
+                    ClusterDecision d = ClusterGenerator.decidePure(seed, spawnX, spawnZ, cx, cz, null);
+                    int cellSize = ClusterGenerator.cellSizeChunks();
+                    long cellKey = (((long) d.cellX()) << 32) ^ (d.cellZ() & 0xFFFFFFFFL);
+                    cellsSeen.add(cellKey);
+
+                    if (d.isNoVein()) {
+                        noVeinChunks++;
+                        if (d.isBaseNoVein()) emptyByBase++;
+                        else if (d.isWeightedEmpty()) emptyByWeighted++;
+                        else if ("out_of_all_rings".equals(d.reason())) emptyByOutOfRings++;
+                        else emptyByOutsideRadius++;
+                        continue;
+                    }
+                    veinChunks++;
+                    ClusterGenerator.Ring ring = ringByRecipe.get(d.finalRecipe());
+                    String alias = ring != null ? ring.alias() : d.finalRecipe().toString();
+                    chunksByResource.merge(alias, 1, Integer::sum);
+                    long u = ring != null ? ring.unitsPerChunk() : 0L;
+                    unitsByResource.merge(alias, u, Long::sum);
+
+                    ClusterSummary cs = clusters.get(d.clusterId());
+                    if (cs == null) {
+                        long cdx = d.centerX() - spawnX;
+                        long cdz = d.centerZ() - spawnZ;
+                        int distSpawn = (int) Math.round(Math.sqrt((double) (cdx * cdx + cdz * cdz)));
+                        cs = new ClusterSummary(alias, d.clusterId(), d.cellX(), d.cellZ(),
+                            d.centerX(), d.centerZ(), d.radiusBlocks(), distSpawn);
+                        clusters.put(d.clusterId(), cs);
+                    }
+                    cs.chunks++;
+                }
+            }
+
+            // Per-resource cluster aggregates
+            java.util.Map<String, Integer> clustersByResource = new java.util.LinkedHashMap<>();
+            java.util.Map<String, Integer> nearestByResource = new java.util.LinkedHashMap<>();
+            java.util.Map<String, Long> sumDistByResource = new java.util.LinkedHashMap<>();
+            java.util.Map<String, Integer> countDistByResource = new java.util.LinkedHashMap<>();
+            for (ClusterSummary cs : clusters.values()) {
+                clustersByResource.merge(cs.alias, 1, Integer::sum);
+                nearestByResource.merge(cs.alias, cs.distanceFromSpawnAtCenter, Math::min);
+                sumDistByResource.merge(cs.alias, (long) cs.distanceFromSpawnAtCenter, Long::sum);
+                countDistByResource.merge(cs.alias, 1, Integer::sum);
+            }
+
+            // Build report
+            StringBuilder sb = new StringBuilder("[CCI World] simulate_distribution");
+            sb.append("\n  dimension:           ").append(level.dimension().location());
+            sb.append("\n  world seed:          ").append(seed);
+            sb.append("\n  spawn:               ").append(spawnX).append(" / ").append(spawnZ);
+            sb.append("\n  radius_blocks:       ").append(radius);
+            sb.append("\n  chunks simulated:    ").append(chunksSimulated);
+            sb.append("\n  cells simulated:     ").append(cellsSeen.size());
+            sb.append("\n  no-vein chunks:      ").append(noVeinChunks);
+            sb.append("\n    by base no_vein_roll:    ").append(emptyByBase);
+            sb.append("\n    by weighted_empty:       ").append(emptyByWeighted);
+            sb.append("\n    by out_of_all_rings:     ").append(emptyByOutOfRings);
+            sb.append("\n    by outside_cluster_rad.: ").append(emptyByOutsideRadius);
+            sb.append("\n  useful vein chunks:  ").append(veinChunks);
+            sb.append("\n  clusters by resource:");
+            if (clustersByResource.isEmpty()) sb.append("\n    (none)");
+            else clustersByResource.forEach((k, v) -> sb.append("\n    ").append(k).append(" -> ").append(v));
+            sb.append("\n  chunks by resource:");
+            if (chunksByResource.isEmpty()) sb.append("\n    (none)");
+            else chunksByResource.forEach((k, v) -> sb.append("\n    ").append(k).append(" -> ").append(v));
+            sb.append("\n  estimated total units (chunks * units_per_chunk):");
+            if (unitsByResource.isEmpty()) sb.append("\n    (none)");
+            else unitsByResource.forEach((k, v) -> sb.append("\n    ").append(k).append(" -> ").append(v));
+            sb.append("\n  nearest cluster (blocks from spawn):");
+            for (ClusterGenerator.Ring r : ClusterGenerator.rings()) {
+                Integer near = nearestByResource.get(r.alias());
+                sb.append("\n    ").append(r.alias()).append(": ")
+                  .append(near != null ? near.toString() : "ABSENT");
+            }
+            sb.append("\n  average cluster distance from spawn:");
+            for (ClusterGenerator.Ring r : ClusterGenerator.rings()) {
+                Integer cnt = countDistByResource.get(r.alias());
+                Long sum = sumDistByResource.get(r.alias());
+                if (cnt != null && cnt > 0 && sum != null) {
+                    sb.append("\n    ").append(r.alias()).append(": ").append(sum / cnt).append(" blocks (n=").append(cnt).append(")");
+                } else {
+                    sb.append("\n    ").append(r.alias()).append(": ABSENT");
+                }
+            }
+            sb.append("\n  first 10 clusters:");
+            int shown = 0;
+            for (ClusterSummary cs : clusters.values()) {
+                if (shown++ >= 10) break;
+                long est = 0L;
+                ClusterGenerator.Ring rr = null;
+                for (ClusterGenerator.Ring r : ClusterGenerator.rings()) if (r.alias().equals(cs.alias)) { rr = r; break; }
+                if (rr != null) est = (long) cs.chunks * rr.unitsPerChunk();
+                sb.append("\n    [").append(cs.alias).append("] id=").append(Long.toHexString(cs.clusterId))
+                  .append(" cell=").append(cs.cellX).append("/").append(cs.cellZ)
+                  .append(" center_block=").append(cs.centerX).append("/").append(cs.centerZ)
+                  .append(" center_chunk=").append(cs.centerX >> 4).append("/").append(cs.centerZ >> 4)
+                  .append(" radius=").append(cs.radius).append("b")
+                  .append(" est_chunks=").append(cs.chunks)
+                  .append(" est_units=").append(est)
+                  .append(" dist_spawn=").append(cs.distanceFromSpawnAtCenter).append("b");
+            }
+
+            // Resource target summary (Task B): diagnostic only, never fail.
+            sb.append("\n  target summary (diagnostic only):");
+            appendTarget(sb, "coal",     1000, clustersByResource, radius, true);
+            appendTarget(sb, "iron",     1000, clustersByResource, radius, true);
+            appendTarget(sb, "copper",   1000, clustersByResource, radius, true);
+            appendTarget(sb, "zinc",     1500, clustersByResource, radius, false);
+            appendTarget(sb, "redstone", 2000, clustersByResource, radius, false);
+            appendTarget(sb, "gold",     2500, clustersByResource, radius, false);
+
+            // v0.7.2: upper-bound diagnostic — WARN if a resource is too dense within 1000 blocks.
+            // Only meaningful when the simulated radius covers 1000 blocks.
+            if (radius >= 1000) {
+                int coal1k     = countClustersWithin(clusters, 1000, "coal");
+                int iron1k     = countClustersWithin(clusters, 1000, "iron");
+                int copper1k   = countClustersWithin(clusters, 1000, "copper");
+                int zinc1k     = countClustersWithin(clusters, 1000, "zinc");
+                int redstone1k = countClustersWithin(clusters, 1000, "redstone");
+                int gold1k     = countClustersWithin(clusters, 1000, "gold");
+                appendDensityWarn(sb, "coal",     coal1k,     10, "too_dense");
+                appendDensityWarn(sb, "iron",     iron1k,      8, "too_dense");
+                appendDensityWarn(sb, "copper",   copper1k,    8, "too_dense");
+                appendDensityWarn(sb, "zinc",     zinc1k,      3, "too_early_dense");
+                appendDensityWarn(sb, "redstone", redstone1k,  2, "too_early_dense");
+                appendDensityWarn(sb, "gold",     gold1k,      0, "too_early");
+            }
+
+            sb.append("\n[INFO] read-only simulation: no chunks loaded/generated, no OreData written.");
+            String msg = sb.toString();
+            src.sendSuccess(() -> Component.literal(msg), false);
+            return 1;
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("[CCI World] simulate_distribution error: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int countClustersWithin(java.util.Map<Long, ClusterSummary> clusters, int maxDistance, String alias) {
+        int n = 0;
+        for (ClusterSummary cs : clusters.values()) {
+            if (cs.alias.equals(alias) && cs.distanceFromSpawnAtCenter <= maxDistance) n++;
+        }
+        return n;
+    }
+
+    private static void appendDensityWarn(StringBuilder sb, String alias, int count, int maxAllowed, String reasonTag) {
+        if (count > maxAllowed) {
+            sb.append("\n    [WARN] ").append(alias).append(" within 1000 blocks: count=").append(count)
+              .append(" > ").append(maxAllowed).append(" -> ").append(reasonTag);
+        }
+    }
+
+    private static void appendTarget(StringBuilder sb, String alias, int targetRadius,
+                                     java.util.Map<String, Integer> clustersByResource,
+                                     int simulatedRadius, boolean mandatory) {
+        int count = clustersByResource.getOrDefault(alias, 0);
+        boolean ok = count >= 1;
+        String tag;
+        if (simulatedRadius < targetRadius) {
+            tag = "[N/A]"; // simulated radius too small to evaluate
+        } else if (ok) {
+            tag = "[PASS]";
+        } else {
+            tag = mandatory ? "[WARN]" : "[INFO]";
+        }
+        sb.append("\n    ").append(tag).append(" ").append(alias)
+          .append(" >=1 cluster within ").append(targetRadius).append(" blocks: count=")
+          .append(count)
+          .append(mandatory ? " (mandatory)" : " (preferred)");
     }
 }
