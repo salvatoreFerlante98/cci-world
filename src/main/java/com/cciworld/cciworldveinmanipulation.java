@@ -22,6 +22,7 @@ public class cciworldveinmanipulation {
         modContainer.registerConfig(ModConfig.Type.COMMON, CCIWorldConfig.SPEC, "cci_world-common.toml");
         NeoForge.EVENT_BUS.addListener(this::registerCommands);
         NeoForge.EVENT_BUS.addListener(AutomaticPolicyEngine::onServerTickPost);
+        NeoForge.EVENT_BUS.addListener(AutomaticPolicyEngine::onChunkLoad);
         LOGGER.info("CCI World loaded");
     }
 

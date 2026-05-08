@@ -66,6 +66,10 @@ public final class CCIWorldCommands {
                     .executes(CCIWorldCommands::policyStatus))
                 .then(Commands.literal("clear_policy_session_cache")
                     .executes(CCIWorldCommands::clearPolicySessionCache))
+                .then(Commands.literal("rescan_loaded")
+                    .executes(CCIWorldCommands::rescanLoaded))
+                .then(Commands.literal("clear_policy_cache")
+                    .executes(CCIWorldCommands::clearPolicyCache))
                 .then(Commands.literal("selftest")
                     .executes(CCIWorldCommands::selftest))
                 .then(Commands.literal("selftest_policy_matrix")
@@ -454,25 +458,115 @@ public final class CCIWorldCommands {
                 bandNames.append(b.name()).append('[').append(b.minDistance()).append('-').append(b.maxDistance()).append(']');
             }
 
-            int biomeRulesCount  = CCIWorldConfig.parseBiomeRules().size();
-            int invalidBiomeIds  = AutomaticPolicyEngine.getWarnedInvalidBiomeIds();
+            int biomeRulesCount = CCIWorldConfig.parseBiomeRules().size();
+            int invalidBiomeIds = AutomaticPolicyEngine.getWarnedInvalidBiomeIds();
+
+            StringBuilder byResource = new StringBuilder();
+            AutomaticPolicyEngine.getReplacementsByResource().forEach((id, count) ->
+                byResource.append("\n    ").append(id.getPath()).append(": ").append(count)
+            );
+            String byResourceStr = byResource.length() > 0 ? byResource.toString() : " none";
 
             String msg = "[CCI World] policy_status" +
+                "\n  --- engine ---" +
                 "\n  enabled:                   " + CCIWorldConfig.ENABLED.get() +
+                "\n  policy_engine_enabled:     " + CCIWorldConfig.POLICY_ENGINE_ENABLED.get() +
                 "\n  automatic_policy_enabled:  " + CCIWorldConfig.AUTOMATIC_POLICY_ENABLED.get() +
+                "\n  policy_chunks_per_tick:    " + CCIWorldConfig.POLICY_CHUNKS_PER_TICK.get() +
+                "\n  max_pending_policy_jobs:   " + CCIWorldConfig.MAX_PENDING_POLICY_JOBS.get() +
+                "\n  processed_cache_enabled:   " + CCIWorldConfig.PROCESSED_CACHE_ENABLED.get() +
+                "\n  replacement_default:       " + CCIWorldConfig.REPLACEMENT_DEFAULT.get() +
+                "\n  player_scan_radius_chunks: " + CCIWorldConfig.PLAYER_SCAN_RADIUS_CHUNKS.get() +
+                "\n  scan_interval_ticks:       " + CCIWorldConfig.SCAN_INTERVAL_TICKS.get() +
+                "\n  --- rules ---" +
                 "\n  distance_bands_count:      " + bands.size() +
                 "\n  bands:                     " + bandNames +
                 "\n  biome_policy_enabled:      " + CCIWorldConfig.BIOME_POLICY_ENABLED.get() +
                 "\n  biome_sample_y:            " + CCIWorldConfig.BIOME_SAMPLE_Y.get() +
                 "\n  biome_rules_count:         " + biomeRulesCount +
                 "\n  invalid_biome_ids_warned:  " + invalidBiomeIds +
-                "\n  player_scan_radius_chunks: " + CCIWorldConfig.PLAYER_SCAN_RADIUS_CHUNKS.get() +
-                "\n  scan_interval_ticks:       " + CCIWorldConfig.SCAN_INTERVAL_TICKS.get() +
-                "\n  max_chunks_per_tick:       " + CCIWorldConfig.MAX_CHUNKS_PER_TICK.get() +
+                "\n  --- runtime ---" +
                 "\n  queue size:                " + AutomaticPolicyEngine.getQueueSize() +
                 "\n  session cache size:        " + AutomaticPolicyEngine.getSessionCacheSize() +
-                "\n  total applied this session:" + AutomaticPolicyEngine.getTotalApplied() +
-                "\n  total skipped this session:" + AutomaticPolicyEngine.getTotalSkipped();
+                "\n  total applied:             " + AutomaticPolicyEngine.getTotalApplied() +
+                "\n  skipped unloaded:          " + AutomaticPolicyEngine.getTotalSkippedUnloaded() +
+                "\n  skipped cached:            " + AutomaticPolicyEngine.getTotalSkippedCached() +
+                "\n  skipped no action:         " + AutomaticPolicyEngine.getTotalSkippedNoAction() +
+                "\n  replacements by resource:" + byResourceStr;
+
+            src.sendSuccess(() -> Component.literal(msg), false);
+            return 1;
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("[CCI World] error: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // rescan_loaded — clear cache and re-enqueue all loaded chunks near players
+    // -------------------------------------------------------------------------
+
+    private static int rescanLoaded(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        try {
+            int cleared  = AutomaticPolicyEngine.clearSessionCache();
+            int enqueued = 0, skippedFull = 0, skippedUnloaded = 0;
+
+            int radius = CCIWorldConfig.PLAYER_SCAN_RADIUS_CHUNKS.get();
+
+            for (ServerLevel level : src.getServer().getAllLevels()) {
+                for (ServerPlayer player : level.players()) {
+                    int px = SectionPos.blockToSectionCoord(player.blockPosition().getX());
+                    int pz = SectionPos.blockToSectionCoord(player.blockPosition().getZ());
+
+                    for (int dz = -radius; dz <= radius; dz++) {
+                        for (int dx = -radius; dx <= radius; dx++) {
+                            int cx = px + dx, cz = pz + dz;
+                            LevelChunk chunk = level.getChunkSource().getChunkNow(cx, cz);
+                            if (chunk == null) { skippedUnloaded++; continue; }
+
+                            if (PolicyQueue.size() >= CCIWorldConfig.MAX_PENDING_POLICY_JOBS.get()) {
+                                skippedFull++;
+                                continue;
+                            }
+
+                            boolean added = PolicyQueue.enqueue(new PolicyQueueEntry(
+                                level.dimension(), cx, cz, "rescan", player.getName().getString()
+                            ));
+                            if (added) enqueued++;
+                        }
+                    }
+                }
+            }
+
+            String msg = "[CCI World] rescan_loaded" +
+                "\n  cache cleared:     " + cleared + " entries" +
+                "\n  enqueued:          " + enqueued +
+                "\n  skipped unloaded:  " + skippedUnloaded +
+                "\n  skipped queue full:" + skippedFull +
+                "\n  queue size:        " + PolicyQueue.size();
+
+            src.sendSuccess(() -> Component.literal(msg), false);
+            return 1;
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("[CCI World] error: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // clear_policy_cache — clears session cache (alias for clear_policy_session_cache)
+    // -------------------------------------------------------------------------
+
+    private static int clearPolicyCache(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        try {
+            int cleared   = AutomaticPolicyEngine.clearSessionCache();
+            int queueSize = AutomaticPolicyEngine.getQueueSize();
+
+            String msg = "[CCI World] clear_policy_cache" +
+                "\n  cache cleared: " + cleared + " entries removed" +
+                "\n  queue size:    " + queueSize + " (unchanged)";
 
             src.sendSuccess(() -> Component.literal(msg), false);
             return 1;

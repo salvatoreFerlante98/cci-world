@@ -26,6 +26,13 @@ public final class CCIWorldConfig {
     public static final ModConfigSpec.IntValue SCAN_INTERVAL_TICKS;
     public static final ModConfigSpec.IntValue MAX_CHUNKS_PER_TICK;
 
+    // --- v0.4 policy engine ---
+    public static final ModConfigSpec.ConfigValue<Boolean> POLICY_ENGINE_ENABLED;
+    public static final ModConfigSpec.IntValue POLICY_CHUNKS_PER_TICK;
+    public static final ModConfigSpec.IntValue MAX_PENDING_POLICY_JOBS;
+    public static final ModConfigSpec.ConfigValue<Boolean> PROCESSED_CACHE_ENABLED;
+    public static final ModConfigSpec.ConfigValue<String> REPLACEMENT_DEFAULT;
+
     // --- distance bands ---
     public static final ModConfigSpec.IntValue BAND_INNER_MIN;
     public static final ModConfigSpec.IntValue BAND_INNER_MAX;
@@ -79,6 +86,26 @@ public final class CCIWorldConfig {
         MAX_CHUNKS_PER_TICK = builder
             .comment("Maximum number of queued chunks to process per server tick.")
             .defineInRange("max_chunks_per_tick", 4, 1, 64);
+
+        POLICY_ENGINE_ENABLED = builder
+            .comment("Enable ChunkLoadEvent-based automatic policy processing (v0.4 engine).")
+            .define("policy_engine_enabled", true);
+
+        POLICY_CHUNKS_PER_TICK = builder
+            .comment("Maximum chunks the v0.4 engine processes per server tick.")
+            .defineInRange("policy_chunks_per_tick", 6, 1, 64);
+
+        MAX_PENDING_POLICY_JOBS = builder
+            .comment("Maximum pending chunk jobs in the queue. Incoming chunk loads are silently dropped when the queue is full.")
+            .defineInRange("max_pending_policy_jobs", 8192, 1, 65536);
+
+        PROCESSED_CACHE_ENABLED = builder
+            .comment("Cache processed chunk keys to skip reprocessing within a server session. Disable to reprocess every chunk on every load.")
+            .define("processed_cache_enabled", true);
+
+        REPLACEMENT_DEFAULT = builder
+            .comment("Default behavior when no rule matches the current vein. Only \"leave_original\" is supported.")
+            .define("replacement_default", "leave_original");
 
         // Distance bands
         builder.push("band_inner");

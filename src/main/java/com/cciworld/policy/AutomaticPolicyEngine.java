@@ -3,45 +3,91 @@ package com.cciworld.policy;
 import com.cciworld.config.CCIWorldConfig;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.SectionPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public final class AutomaticPolicyEngine {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    // Session state — reset by clearSessionCache()
+    // Session cache — prevents reprocessing chunks already handled this session
     private static final Set<PolicyChunkKey> SESSION_CACHE = new HashSet<>();
-    private static int totalApplied  = 0;
-    private static int totalSkipped  = 0;
 
-    // Scan phase state
+    // Counters — lifetime totals, reset only by clearSessionCache()
+    private static int totalApplied           = 0;
+    private static int totalSkippedUnloaded   = 0;  // level or chunk gone before processing
+    private static int totalSkippedCached     = 0;  // already in session cache
+    private static int totalSkippedNoAction   = 0;  // processed but policy returned no replacement
+
+    // Per-resource replacement counts (newRecipe -> count)
+    private static final Map<ResourceLocation, Integer> REPLACEMENTS_BY_RESOURCE = new LinkedHashMap<>();
+
+    // Periodic player-scan phase state
     private static int tickCounter = 0;
 
     private AutomaticPolicyEngine() {}
 
     // -------------------------------------------------------------------------
-    // Public accessors for /cci_world policy_status and clear_policy_session_cache
+    // Public accessors
     // -------------------------------------------------------------------------
 
     public static int getSessionCacheSize()      { return SESSION_CACHE.size(); }
     public static int getTotalApplied()          { return totalApplied; }
-    public static int getTotalSkipped()          { return totalSkipped; }
+    public static int getTotalSkipped()          { return totalSkippedUnloaded + totalSkippedCached + totalSkippedNoAction; }
+    public static int getTotalSkippedUnloaded()  { return totalSkippedUnloaded; }
+    public static int getTotalSkippedCached()    { return totalSkippedCached; }
+    public static int getTotalSkippedNoAction()  { return totalSkippedNoAction; }
     public static int getQueueSize()             { return PolicyQueue.size(); }
     public static int getWarnedInvalidBiomeIds() { return BiomePolicyService.getWarnedInvalidCount(); }
+
+    public static Map<ResourceLocation, Integer> getReplacementsByResource() {
+        return Collections.unmodifiableMap(REPLACEMENTS_BY_RESOURCE);
+    }
 
     public static int clearSessionCache() {
         int before = SESSION_CACHE.size();
         SESSION_CACHE.clear();
         return before;
+    }
+
+    // -------------------------------------------------------------------------
+    // ChunkLoadEvent handler (v0.4 engine) — enqueues every freshly loaded chunk
+    // -------------------------------------------------------------------------
+
+    public static void onChunkLoad(ChunkEvent.Load event) {
+        if (!CCIWorldConfig.ENABLED.get()) return;
+        if (!CCIWorldConfig.POLICY_ENGINE_ENABLED.get()) return;
+        if (!(event.getLevel() instanceof ServerLevel level)) return;
+        if (!(event.getChunk() instanceof LevelChunk chunk)) return;
+
+        int cx = chunk.getPos().x;
+        int cz = chunk.getPos().z;
+        PolicyChunkKey key = new PolicyChunkKey(level.dimension(), cx, cz);
+
+        // Skip if already handled this session
+        if (CCIWorldConfig.PROCESSED_CACHE_ENABLED.get() && SESSION_CACHE.contains(key)) return;
+
+        // Drop if queue is at capacity
+        if (PolicyQueue.size() >= CCIWorldConfig.MAX_PENDING_POLICY_JOBS.get()) {
+            LOGGER.debug("[CCI World] queue full ({}) — dropping chunk [{}/{}]",
+                PolicyQueue.size(), cx, cz);
+            return;
+        }
+
+        PolicyQueue.enqueue(new PolicyQueueEntry(level.dimension(), cx, cz, "chunk_load", "system"));
     }
 
     // -------------------------------------------------------------------------
@@ -53,7 +99,7 @@ public final class AutomaticPolicyEngine {
 
         MinecraftServer server = event.getServer();
 
-        // Phase 1 — periodic scan of player-surrounding loaded chunks
+        // Periodic player-scan phase (legacy fallback — covers chunks loaded before the event was active)
         tickCounter++;
         if (tickCounter >= CCIWorldConfig.SCAN_INTERVAL_TICKS.get()) {
             tickCounter = 0;
@@ -62,12 +108,12 @@ public final class AutomaticPolicyEngine {
             }
         }
 
-        // Phase 2 — process up to maxChunksPerTick from queue
+        // Process queue
         processQueue(server);
     }
 
     // -------------------------------------------------------------------------
-    // Scan phase: iterate players, enqueue loaded chunks not yet in session cache
+    // Player-scan phase: enqueue loaded chunks near each player not yet cached
     // -------------------------------------------------------------------------
 
     private static void scanPlayers(MinecraftServer server) {
@@ -75,10 +121,7 @@ public final class AutomaticPolicyEngine {
         List<ServerPlayer> players = server.getPlayerList().getPlayers();
         if (players.isEmpty()) return;
 
-        int candidates    = 0;
-        int enqueued      = 0;
-        int skippedCache  = 0;
-        int skippedUnloaded = 0;
+        int candidates = 0, enqueued = 0, skippedCache = 0, skippedUnloaded = 0;
 
         for (ServerPlayer player : players) {
             ServerLevel level = player.serverLevel();
@@ -90,47 +133,36 @@ public final class AutomaticPolicyEngine {
                     candidates++;
                     int cx = playerCX + dx;
                     int cz = playerCZ + dz;
-
                     PolicyChunkKey key = new PolicyChunkKey(level.dimension(), cx, cz);
 
-                    if (SESSION_CACHE.contains(key)) {
-                        skippedCache++;
-                        continue;
-                    }
+                    if (SESSION_CACHE.contains(key)) { skippedCache++; continue; }
 
-                    // getChunkNow — guaranteed non-generating: returns null if chunk is not
-                    // already in memory. We never call getChunk/getChunkAt here.
                     LevelChunk chunk = level.getChunkSource().getChunkNow(cx, cz);
-                    if (chunk == null) {
-                        skippedUnloaded++;
-                        continue;
-                    }
+                    if (chunk == null) { skippedUnloaded++; continue; }
 
-                    boolean added = PolicyQueue.enqueue(new PolicyQueueEntry(
-                        level.dimension(), cx, cz, "auto", player.getName().getString()
-                    ));
-                    if (added) enqueued++;
+                    if (PolicyQueue.size() < CCIWorldConfig.MAX_PENDING_POLICY_JOBS.get()) {
+                        boolean added = PolicyQueue.enqueue(new PolicyQueueEntry(
+                            level.dimension(), cx, cz, "auto", player.getName().getString()
+                        ));
+                        if (added) enqueued++;
+                    }
                 }
             }
         }
 
-        LOGGER.debug(
-            "[CCI World] scan: candidates={} enqueued={} skip_cache={} skip_unloaded={} queue={}",
-            candidates, enqueued, skippedCache, skippedUnloaded, PolicyQueue.size()
-        );
+        LOGGER.debug("[CCI World] scan: candidates={} enqueued={} skip_cache={} skip_unloaded={} queue={}",
+            candidates, enqueued, skippedCache, skippedUnloaded, PolicyQueue.size());
     }
 
     // -------------------------------------------------------------------------
-    // Process phase: dequeue up to maxChunksPerTick, apply policy
+    // Process phase: drain up to policy_chunks_per_tick entries from the queue
     // -------------------------------------------------------------------------
 
     private static void processQueue(MinecraftServer server) {
         if (PolicyQueue.isEmpty()) return;
 
-        int maxPerTick = CCIWorldConfig.MAX_CHUNKS_PER_TICK.get();
-        int processed  = 0;
-        int applied    = 0;
-        int skipped    = 0;
+        int maxPerTick = CCIWorldConfig.POLICY_CHUNKS_PER_TICK.get();
+        int processed = 0, applied = 0, skipped = 0;
 
         while (processed < maxPerTick && !PolicyQueue.isEmpty()) {
             PolicyQueueEntry entry = PolicyQueue.poll();
@@ -140,50 +172,56 @@ public final class AutomaticPolicyEngine {
             ServerLevel level = server.getLevel(entry.dimension());
             if (level == null) {
                 skipped++;
-                totalSkipped++;
+                totalSkippedUnloaded++;
                 continue;
             }
 
-            // getChunkNow — chunk may have been unloaded between enqueue and processing;
-            // returns null without generating. Skip silently if no longer loaded.
+            // getChunkNow — non-generating; null if chunk unloaded since enqueue
             LevelChunk chunk = level.getChunkSource().getChunkNow(entry.chunkX(), entry.chunkZ());
             if (chunk == null) {
                 skipped++;
-                totalSkipped++;
+                totalSkippedUnloaded++;
+                continue;
+            }
+
+            PolicyChunkKey key = entry.key();
+
+            // Double-check session cache (handles re-enqueue after cache clear)
+            if (CCIWorldConfig.PROCESSED_CACHE_ENABLED.get() && SESSION_CACHE.contains(key)) {
+                skipped++;
+                totalSkippedCached++;
                 continue;
             }
 
             PolicyResult result = ResourcePolicyService.apply(level, chunk);
 
-            // Mark processed in session cache regardless of outcome so we don't rescan.
-            SESSION_CACHE.add(entry.key());
+            // Mark processed so neither scan phase nor ChunkLoadEvent re-enqueues it
+            if (CCIWorldConfig.PROCESSED_CACHE_ENABLED.get()) {
+                SESSION_CACHE.add(key);
+            }
 
             if (result.applied()) {
                 applied++;
                 totalApplied++;
-                LOGGER.debug(
-                    "[CCI World] applied [{}/{}] {} -> {} policy={} src={}",
+                if (result.newRecipe() != null) {
+                    REPLACEMENTS_BY_RESOURCE.merge(result.newRecipe(), 1, Integer::sum);
+                }
+                LOGGER.debug("[CCI World] applied [{}/{}] {} -> {} policy={} src={}",
                     entry.chunkX(), entry.chunkZ(),
                     result.previousRecipe() != null ? result.previousRecipe().getPath() : "none",
                     result.newRecipe()      != null ? result.newRecipe().getPath()      : "-",
-                    result.policyType(),
-                    entry.source()
-                );
+                    result.policyType(), entry.source());
             } else {
                 skipped++;
-                totalSkipped++;
-                LOGGER.debug(
-                    "[CCI World] skip [{}/{}] reason={} src={}",
-                    entry.chunkX(), entry.chunkZ(), result.reason(), entry.source()
-                );
+                totalSkippedNoAction++;
+                LOGGER.debug("[CCI World] skip [{}/{}] reason={} src={}",
+                    entry.chunkX(), entry.chunkZ(), result.reason(), entry.source());
             }
         }
 
         if (processed > 0) {
-            LOGGER.debug(
-                "[CCI World] batch: processed={} applied={} skipped={} remaining={}",
-                processed, applied, skipped, PolicyQueue.size()
-            );
+            LOGGER.debug("[CCI World] batch: processed={} applied={} skipped={} remaining={}",
+                processed, applied, skipped, PolicyQueue.size());
         }
     }
 }
