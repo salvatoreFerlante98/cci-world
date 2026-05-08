@@ -29,4 +29,30 @@ public final class COEVeinWriter {
         data.setExtractedAmount(0L);
         chunk.setUnsaved(true);
     }
+
+    /**
+     * Writes a "no useful vein" state on the chunk.
+     *
+     * Audit (COE 1.6.8):
+     *  - OreData.recipe field is nullable.
+     *  - OreData.save() uses Optional.ofNullable(recipe), so null recipe is
+     *    serialized safely.
+     *  - OreData.getRecipe(RecipeManager) has an explicit null-check on recipe
+     *    and returns null when absent.
+     *  - OreData.populate(chunk) natively produces this exact state when
+     *    OreVeinGenerator.pick(chunk) returns null: recipe stays null while
+     *    loaded=true is still set.
+     *  - ExcavatingBlockEntity skips its mining logic when getRecipe(rm) is null.
+     *
+     * Therefore the safest no-vein state is:
+     *   recipe=null, loaded=true, randomMul=0, extractedAmount=0.
+     */
+    public static void writeNoVein(LevelChunk chunk) {
+        OreData data = OreDataAttachment.getData(chunk);
+        data.setRecipe(null);
+        data.setLoaded(true);
+        data.setRandomMul(0F);
+        data.setExtractedAmount(0L);
+        chunk.setUnsaved(true);
+    }
 }

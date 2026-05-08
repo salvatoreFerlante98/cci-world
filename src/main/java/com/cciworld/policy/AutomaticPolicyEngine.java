@@ -38,7 +38,23 @@ public final class AutomaticPolicyEngine {
     // Periodic player-scan phase state
     private static int tickCounter = 0;
 
+    // One-shot warning when both engines are simultaneously enabled
+    private static boolean conflictWarned = false;
+
     private AutomaticPolicyEngine() {}
+
+    /** Returns true if the v0.4 engine must stand down (authoritative gen owns OreData). */
+    private static boolean isSuppressedByAuthoritative() {
+        boolean auth = CCIWorldConfig.AUTHORITATIVE_GENERATION_ENABLED.get();
+        boolean policy = CCIWorldConfig.POLICY_ENGINE_ENABLED.get();
+        if (auth && policy && !conflictWarned) {
+            LOGGER.warn("[CCI World] CONFIG CONFLICT: both authoritative_generation_enabled=true and " +
+                "policy_engine_enabled=true. v0.5 authoritative generator is the single OreData writer; " +
+                "v0.4 policy engine is suppressed. Disable policy_engine_enabled to silence this warning.");
+            conflictWarned = true;
+        }
+        return auth;
+    }
 
     // -------------------------------------------------------------------------
     // Public accessors
@@ -70,6 +86,7 @@ public final class AutomaticPolicyEngine {
     public static void onChunkLoad(ChunkEvent.Load event) {
         if (!CCIWorldConfig.ENABLED.get()) return;
         if (!CCIWorldConfig.POLICY_ENGINE_ENABLED.get()) return;
+        if (isSuppressedByAuthoritative()) return; // v0.5 owns OreData
         if (!(event.getLevel() instanceof ServerLevel level)) return;
         if (!(event.getChunk() instanceof LevelChunk chunk)) return;
 
@@ -96,6 +113,7 @@ public final class AutomaticPolicyEngine {
 
     public static void onServerTickPost(ServerTickEvent.Post event) {
         if (!CCIWorldConfig.ENABLED.get()) return;
+        if (isSuppressedByAuthoritative()) return; // v0.5 owns OreData; v0.4 stands down
 
         MinecraftServer server = event.getServer();
 

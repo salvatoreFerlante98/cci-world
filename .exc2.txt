@@ -1,0 +1,1074 @@
+﻿Compiled from "ExcavatingBlockEntity.java"
+public abstract class com.tom.createores.block.entity.ExcavatingBlockEntity<R extends com.tom.createores.recipe.ExcavatingRecipe> extends com.simibubi.create.foundation.blockEntity.SmartBlockEntity implements com.tom.createores.block.entity.MultiblockCapHandler, com.tom.createores.block.entity.IDrill {
+  protected int progress;
+
+  protected com.tom.createores.block.entity.MultiblockCapHandler$Kinetic kinetic;
+
+  protected net.minecraft.resources.ResourceLocation veinClient;
+
+  protected net.minecraft.resources.ResourceLocation recipeClient;
+
+  protected long resourceRemClient;
+
+  protected boolean hasRotation;
+
+  protected net.minecraft.world.item.ItemStack drillStack;
+
+  protected net.minecraft.world.item.crafting.RecipeHolder<R> current;
+
+  protected net.minecraft.world.item.crafting.RecipeHolder<com.tom.createores.recipe.VeinRecipe> vein;
+
+  protected com.tom.createores.OreData data;
+
+  protected com.tom.createores.block.entity.ExcavatingBlockEntity$ExcavatorState state;
+
+  protected boolean completedOneCycle;
+
+  protected com.tom.createores.block.entity.ExcavatingBlockEntity(net.minecraft.world.level.block.entity.BlockEntityType<?>, net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState);
+    Code:
+         0: aload_0
+         1: aload_1
+         2: aload_2
+         3: aload_3
+         4: invokespecial #1                  // Method com/simibubi/create/foundation/blockEntity/SmartBlockEntity."<init>":(Lnet/minecraft/world/level/block/entity/BlockEntityType;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)V
+         7: aload_0
+         8: getstatic     #7                  // Field com/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState.NO_VEIN:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+        11: putfield      #13                 // Field state:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+        14: aload_0
+        15: getstatic     #18                 // Field net/minecraft/world/item/ItemStack.EMPTY:Lnet/minecraft/world/item/ItemStack;
+        18: putfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+        21: aload_0
+        22: bipush        20
+        24: invokevirtual #27                 // Method setLazyTickRate:(I)V
+        27: return
+
+  public boolean addToGoggleTooltip(java.util.List<net.minecraft.network.chat.Component>, boolean);
+    Code:
+         0: aload_0
+         1: getfield      #31                 // Field veinClient:Lnet/minecraft/resources/ResourceLocation;
+         4: ifnull        47
+         7: aload_0
+         8: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+        11: invokevirtual #39                 // Method net/minecraft/world/level/Level.getRecipeManager:()Lnet/minecraft/world/item/crafting/RecipeManager;
+        14: aload_0
+        15: getfield      #31                 // Field veinClient:Lnet/minecraft/resources/ResourceLocation;
+        18: invokevirtual #45                 // Method net/minecraft/world/item/crafting/RecipeManager.byKey:(Lnet/minecraft/resources/ResourceLocation;)Ljava/util/Optional;
+        21: invokedynamic #51,  0             // InvokeDynamic #0:test:()Ljava/util/function/Predicate;
+        26: invokevirtual #55                 // Method java/util/Optional.filter:(Ljava/util/function/Predicate;)Ljava/util/Optional;
+        29: invokedynamic #61,  0             // InvokeDynamic #1:apply:()Ljava/util/function/Function;
+        34: invokevirtual #65                 // Method java/util/Optional.map:(Ljava/util/function/Function;)Ljava/util/Optional;
+        37: aconst_null
+        38: invokevirtual #69                 // Method java/util/Optional.orElse:(Ljava/lang/Object;)Ljava/lang/Object;
+        41: checkcast     #73                 // class com/tom/createores/recipe/VeinRecipe
+        44: goto          48
+        47: aconst_null
+        48: astore_3
+        49: aload_3
+        50: ifnull        60
+        53: aload_3
+        54: invokevirtual #75                 // Method com/tom/createores/recipe/VeinRecipe.getName:()Lnet/minecraft/network/chat/Component;
+        57: goto          65
+        60: ldc           #79                 // String chat.coe.veinFinder.nothing
+        62: invokestatic  #81                 // InterfaceMethod net/minecraft/network/chat/Component.translatable:(Ljava/lang/String;)Lnet/minecraft/network/chat/MutableComponent;
+        65: astore        4
+        67: aload_0
+        68: getfield      #87                 // Field recipeClient:Lnet/minecraft/resources/ResourceLocation;
+        71: ifnull        115
+        74: aload_0
+        75: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+        78: invokevirtual #39                 // Method net/minecraft/world/level/Level.getRecipeManager:()Lnet/minecraft/world/item/crafting/RecipeManager;
+        81: aload_0
+        82: getfield      #87                 // Field recipeClient:Lnet/minecraft/resources/ResourceLocation;
+        85: invokevirtual #45                 // Method net/minecraft/world/item/crafting/RecipeManager.byKey:(Lnet/minecraft/resources/ResourceLocation;)Ljava/util/Optional;
+        88: aload_0
+        89: invokedynamic #90,  0             // InvokeDynamic #2:test:(Lcom/tom/createores/block/entity/ExcavatingBlockEntity;)Ljava/util/function/Predicate;
+        94: invokevirtual #55                 // Method java/util/Optional.filter:(Ljava/util/function/Predicate;)Ljava/util/Optional;
+        97: invokedynamic #93,  0             // InvokeDynamic #3:apply:()Ljava/util/function/Function;
+       102: invokevirtual #65                 // Method java/util/Optional.map:(Ljava/util/function/Function;)Ljava/util/Optional;
+       105: aconst_null
+       106: invokevirtual #69                 // Method java/util/Optional.orElse:(Ljava/lang/Object;)Ljava/lang/Object;
+       109: checkcast     #94                 // class com/tom/createores/recipe/ExcavatingRecipe
+       112: goto          116
+       115: aconst_null
+       116: astore        5
+       118: aload_1
+       119: ldc           #96                 // String chat.coe.veinFinder.found
+       121: iconst_1
+       122: anewarray     #98                 // class java/lang/Object
+       125: dup
+       126: iconst_0
+       127: aload         4
+       129: aastore
+       130: invokestatic  #100                // InterfaceMethod net/minecraft/network/chat/Component.translatable:(Ljava/lang/String;[Ljava/lang/Object;)Lnet/minecraft/network/chat/MutableComponent;
+       133: invokestatic  #103                // Method com/tom/createores/util/TooltipUtil.forGoggles:(Ljava/util/List;Lnet/minecraft/network/chat/MutableComponent;)V
+       136: aload_0
+       137: getfield      #109                // Field hasRotation:Z
+       140: ifne          245
+       143: aload_1
+       144: ldc           #113                // String tooltip.speedRequirement
+       146: iconst_0
+       147: anewarray     #98                 // class java/lang/Object
+       150: invokestatic  #115                // Method com/simibubi/create/foundation/utility/CreateLang.translateDirect:(Ljava/lang/String;[Ljava/lang/Object;)Lnet/minecraft/network/chat/MutableComponent;
+       153: getstatic     #120                // Field net/minecraft/ChatFormatting.GOLD:Lnet/minecraft/ChatFormatting;
+       156: invokevirtual #126                // Method net/minecraft/network/chat/MutableComponent.withStyle:(Lnet/minecraft/ChatFormatting;)Lnet/minecraft/network/chat/MutableComponent;
+       159: invokestatic  #103                // Method com/tom/createores/util/TooltipUtil.forGoggles:(Ljava/util/List;Lnet/minecraft/network/chat/MutableComponent;)V
+       162: ldc           #132                // String gui.contraptions.not_fast_enough
+       164: iconst_1
+       165: anewarray     #98                 // class java/lang/Object
+       168: dup
+       169: iconst_0
+       170: aload_0
+       171: invokevirtual #134                // Method getBlockState:()Lnet/minecraft/world/level/block/state/BlockState;
+       174: invokevirtual #138                // Method net/minecraft/world/level/block/state/BlockState.getBlock:()Lnet/minecraft/world/level/block/Block;
+       177: invokevirtual #144                // Method net/minecraft/world/level/block/Block.getDescriptionId:()Ljava/lang/String;
+       180: iconst_0
+       181: anewarray     #98                 // class java/lang/Object
+       184: invokestatic  #150                // Method net/minecraft/client/resources/language/I18n.get:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+       187: aastore
+       188: invokestatic  #115                // Method com/simibubi/create/foundation/utility/CreateLang.translateDirect:(Ljava/lang/String;[Ljava/lang/Object;)Lnet/minecraft/network/chat/MutableComponent;
+       191: astore        6
+       193: aload         6
+       195: getstatic     #156                // Field net/createmod/catnip/lang/FontHelper$Palette.GRAY_AND_WHITE:Lnet/createmod/catnip/lang/FontHelper$Palette;
+       198: invokestatic  #162                // Method com/simibubi/create/foundation/item/TooltipHelper.cutTextComponent:(Lnet/minecraft/network/chat/Component;Lnet/createmod/catnip/lang/FontHelper$Palette;)Ljava/util/List;
+       201: astore        7
+       203: iconst_0
+       204: istore        8
+       206: iload         8
+       208: aload         7
+       210: invokeinterface #168,  1          // InterfaceMethod java/util/List.size:()I
+       215: if_icmpge     245
+       218: aload_1
+       219: aload         7
+       221: iload         8
+       223: invokeinterface #174,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+       228: checkcast     #82                 // class net/minecraft/network/chat/Component
+       231: invokeinterface #177,  1          // InterfaceMethod net/minecraft/network/chat/Component.copy:()Lnet/minecraft/network/chat/MutableComponent;
+       236: invokestatic  #103                // Method com/tom/createores/util/TooltipUtil.forGoggles:(Ljava/util/List;Lnet/minecraft/network/chat/MutableComponent;)V
+       239: iinc          8, 1
+       242: goto          206
+       245: aload_0
+       246: getfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+       249: invokevirtual #181                // Method net/minecraft/world/item/ItemStack.isEmpty:()Z
+       252: ifeq          267
+       255: aload_1
+       256: ldc           #185                // String info.coe.drill.noDrill
+       258: invokestatic  #81                 // InterfaceMethod net/minecraft/network/chat/Component.translatable:(Ljava/lang/String;)Lnet/minecraft/network/chat/MutableComponent;
+       261: invokestatic  #103                // Method com/tom/createores/util/TooltipUtil.forGoggles:(Ljava/util/List;Lnet/minecraft/network/chat/MutableComponent;)V
+       264: goto          290
+       267: aload_1
+       268: ldc           #187                // String info.coe.drill.installed
+       270: iconst_1
+       271: anewarray     #98                 // class java/lang/Object
+       274: dup
+       275: iconst_0
+       276: aload_0
+       277: getfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+       280: invokevirtual #189                // Method net/minecraft/world/item/ItemStack.getHoverName:()Lnet/minecraft/network/chat/Component;
+       283: aastore
+       284: invokestatic  #100                // InterfaceMethod net/minecraft/network/chat/Component.translatable:(Ljava/lang/String;[Ljava/lang/Object;)Lnet/minecraft/network/chat/MutableComponent;
+       287: invokestatic  #103                // Method com/tom/createores/util/TooltipUtil.forGoggles:(Ljava/util/List;Lnet/minecraft/network/chat/MutableComponent;)V
+       290: aload_0
+       291: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+       294: aload_0
+       295: invokevirtual #192                // Method getBelow:()Lnet/minecraft/core/BlockPos;
+       298: invokevirtual #196                // Method net/minecraft/world/level/Level.getBlockState:(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;
+       301: aload_0
+       302: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+       305: aload_0
+       306: invokevirtual #192                // Method getBelow:()Lnet/minecraft/core/BlockPos;
+       309: invokevirtual #199                // Method net/minecraft/world/level/block/state/BlockState.isCollisionShapeFullBlock:(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Z
+       312: ifne          324
+       315: aload_1
+       316: ldc           #203                // String info.coe.drill.noGround
+       318: invokestatic  #81                 // InterfaceMethod net/minecraft/network/chat/Component.translatable:(Ljava/lang/String;)Lnet/minecraft/network/chat/MutableComponent;
+       321: invokestatic  #103                // Method com/tom/createores/util/TooltipUtil.forGoggles:(Ljava/util/List;Lnet/minecraft/network/chat/MutableComponent;)V
+       324: aload         5
+       326: ifnull        429
+       329: aload_1
+       330: ldc           #205                // String info.coe.drill.progress
+       332: invokestatic  #81                 // InterfaceMethod net/minecraft/network/chat/Component.translatable:(Ljava/lang/String;)Lnet/minecraft/network/chat/MutableComponent;
+       335: ldc           #207                // String : [
+       337: invokevirtual #209                // Method net/minecraft/network/chat/MutableComponent.append:(Ljava/lang/String;)Lnet/minecraft/network/chat/MutableComponent;
+       340: aload_0
+       341: getfield      #212                // Field progress:I
+       344: i2f
+       345: aload         5
+       347: invokevirtual #216                // Method com/tom/createores/recipe/ExcavatingRecipe.getTicks:()I
+       350: i2f
+       351: fdiv
+       352: invokestatic  #219                // Method com/tom/createores/client/ClientUtil.makeProgressBar:(F)Lnet/minecraft/network/chat/Component;
+       355: invokevirtual #225                // Method net/minecraft/network/chat/MutableComponent.append:(Lnet/minecraft/network/chat/Component;)Lnet/minecraft/network/chat/MutableComponent;
+       358: ldc           #228                // String ]
+       360: invokevirtual #209                // Method net/minecraft/network/chat/MutableComponent.append:(Ljava/lang/String;)Lnet/minecraft/network/chat/MutableComponent;
+       363: invokestatic  #103                // Method com/tom/createores/util/TooltipUtil.forGoggles:(Ljava/util/List;Lnet/minecraft/network/chat/MutableComponent;)V
+       366: aload_0
+       367: getfield      #230                // Field resourceRemClient:J
+       370: lconst_0
+       371: lcmp
+       372: ifeq          398
+       375: aload_1
+       376: ldc           #234                // String info.coe.drill.resourceRemaining
+       378: iconst_1
+       379: anewarray     #98                 // class java/lang/Object
+       382: dup
+       383: iconst_0
+       384: aload_0
+       385: getfield      #230                // Field resourceRemClient:J
+       388: invokestatic  #236                // Method com/tom/createores/util/NumberFormatter.formatNumber:(J)Ljava/lang/String;
+       391: aastore
+       392: invokestatic  #100                // InterfaceMethod net/minecraft/network/chat/Component.translatable:(Ljava/lang/String;[Ljava/lang/Object;)Lnet/minecraft/network/chat/MutableComponent;
+       395: invokestatic  #103                // Method com/tom/createores/util/TooltipUtil.forGoggles:(Ljava/util/List;Lnet/minecraft/network/chat/MutableComponent;)V
+       398: aload         5
+       400: invokevirtual #242                // Method com/tom/createores/recipe/ExcavatingRecipe.getDrill:()Lnet/minecraft/world/item/crafting/Ingredient;
+       403: aload_0
+       404: getfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+       407: invokevirtual #246                // Method net/minecraft/world/item/crafting/Ingredient.test:(Lnet/minecraft/world/item/ItemStack;)Z
+       410: ifne          422
+       413: aload_1
+       414: ldc           #251                // String info.coe.drill.badDrill
+       416: invokestatic  #81                 // InterfaceMethod net/minecraft/network/chat/Component.translatable:(Ljava/lang/String;)Lnet/minecraft/network/chat/MutableComponent;
+       419: invokestatic  #103                // Method com/tom/createores/util/TooltipUtil.forGoggles:(Ljava/util/List;Lnet/minecraft/network/chat/MutableComponent;)V
+       422: aload_0
+       423: aload_1
+       424: aload         5
+       426: invokevirtual #253                // Method addToGoggleTooltip:(Ljava/util/List;Lcom/tom/createores/recipe/ExcavatingRecipe;)V
+       429: aload_0
+       430: getfield      #13                 // Field state:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+       433: getstatic     #257                // Field com/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState.NO_ERROR:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+       436: if_acmpeq     461
+       439: aload_1
+       440: aload_0
+       441: getfield      #13                 // Field state:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+       444: invokevirtual #260                // Method com/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState.name:()Ljava/lang/String;
+       447: invokevirtual #263                // Method java/lang/String.toLowerCase:()Ljava/lang/String;
+       450: invokedynamic #268,  0            // InvokeDynamic #4:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+       455: invokestatic  #81                 // InterfaceMethod net/minecraft/network/chat/Component.translatable:(Ljava/lang/String;)Lnet/minecraft/network/chat/MutableComponent;
+       458: invokestatic  #103                // Method com/tom/createores/util/TooltipUtil.forGoggles:(Ljava/util/List;Lnet/minecraft/network/chat/MutableComponent;)V
+       461: iconst_1
+       462: ireturn
+
+  public void addToGoggleTooltip(java.util.List<net.minecraft.network.chat.Component>, R);
+    Code:
+         0: return
+
+  public void updateRecipe();
+    Code:
+         0: aload_0
+         1: aconst_null
+         2: putfield      #272                // Field vein:Lnet/minecraft/world/item/crafting/RecipeHolder;
+         5: aload_0
+         6: aconst_null
+         7: putfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        10: new           #279                // class net/minecraft/world/level/ChunkPos
+        13: dup
+        14: aload_0
+        15: getfield      #281                // Field worldPosition:Lnet/minecraft/core/BlockPos;
+        18: invokespecial #285                // Method net/minecraft/world/level/ChunkPos."<init>":(Lnet/minecraft/core/BlockPos;)V
+        21: astore_1
+        22: aload_0
+        23: aload_0
+        24: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+        27: aload_1
+        28: getfield      #288                // Field net/minecraft/world/level/ChunkPos.x:I
+        31: aload_1
+        32: getfield      #291                // Field net/minecraft/world/level/ChunkPos.z:I
+        35: invokevirtual #294                // Method net/minecraft/world/level/Level.getChunk:(II)Lnet/minecraft/world/level/chunk/LevelChunk;
+        38: invokestatic  #298                // Method com/tom/createores/OreDataAttachment.getData:(Lnet/minecraft/world/level/chunk/LevelChunk;)Lcom/tom/createores/OreData;
+        41: putfield      #304                // Field data:Lcom/tom/createores/OreData;
+        44: aload_0
+        45: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+        48: invokevirtual #39                 // Method net/minecraft/world/level/Level.getRecipeManager:()Lnet/minecraft/world/item/crafting/RecipeManager;
+        51: astore_2
+        52: aload_0
+        53: getfield      #304                // Field data:Lcom/tom/createores/OreData;
+        56: ifnull        233
+        59: aload_0
+        60: aload_0
+        61: getfield      #304                // Field data:Lcom/tom/createores/OreData;
+        64: aload_2
+        65: invokevirtual #308                // Method com/tom/createores/OreData.getRecipe:(Lnet/minecraft/world/item/crafting/RecipeManager;)Lnet/minecraft/world/item/crafting/RecipeHolder;
+        68: putfield      #272                // Field vein:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        71: aload_0
+        72: getfield      #272                // Field vein:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        75: ifnull        233
+        78: aload_2
+        79: aload_0
+        80: invokevirtual #314                // Method getRecipeType:()Lnet/minecraft/world/item/crafting/RecipeType;
+        83: invokevirtual #318                // Method net/minecraft/world/item/crafting/RecipeManager.getAllRecipesFor:(Lnet/minecraft/world/item/crafting/RecipeType;)Ljava/util/List;
+        86: invokeinterface #322,  1          // InterfaceMethod java/util/List.stream:()Ljava/util/stream/Stream;
+        91: aload_0
+        92: invokedynamic #326,  0            // InvokeDynamic #5:test:(Lcom/tom/createores/block/entity/ExcavatingBlockEntity;)Ljava/util/function/Predicate;
+        97: invokeinterface #327,  2          // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+       102: invokedynamic #332,  0            // InvokeDynamic #6:applyAsInt:()Ljava/util/function/ToIntFunction;
+       107: invokestatic  #336                // InterfaceMethod java/util/Comparator.comparingInt:(Ljava/util/function/ToIntFunction;)Ljava/util/Comparator;
+       110: invokeinterface #342,  2          // InterfaceMethod java/util/stream/Stream.sorted:(Ljava/util/Comparator;)Ljava/util/stream/Stream;
+       115: invokeinterface #346,  1          // InterfaceMethod java/util/stream/Stream.toList:()Ljava/util/List;
+       120: astore_3
+       121: aload_3
+       122: invokeinterface #168,  1          // InterfaceMethod java/util/List.size:()I
+       127: iconst_1
+       128: if_icmpne     148
+       131: aload_0
+       132: aload_3
+       133: iconst_0
+       134: invokeinterface #174,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+       139: checkcast     #350                // class net/minecraft/world/item/crafting/RecipeHolder
+       142: putfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+       145: goto          233
+       148: aload_3
+       149: invokeinterface #168,  1          // InterfaceMethod java/util/List.size:()I
+       154: iconst_1
+       155: if_icmple     233
+       158: aload_3
+       159: invokeinterface #352,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+       164: astore        4
+       166: aload         4
+       168: invokeinterface #356,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+       173: ifeq          212
+       176: aload         4
+       178: invokeinterface #361,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+       183: checkcast     #350                // class net/minecraft/world/item/crafting/RecipeHolder
+       186: astore        5
+       188: aload_0
+       189: aload         5
+       191: invokevirtual #365                // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+       194: checkcast     #94                 // class com/tom/createores/recipe/ExcavatingRecipe
+       197: invokevirtual #369                // Method validateRecipe:(Lcom/tom/createores/recipe/ExcavatingRecipe;)Z
+       200: ifeq          209
+       203: aload_0
+       204: aload         5
+       206: putfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+       209: goto          166
+       212: aload_0
+       213: getfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+       216: ifnonnull     233
+       219: aload_0
+       220: aload_3
+       221: iconst_0
+       222: invokeinterface #174,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+       227: checkcast     #350                // class net/minecraft/world/item/crafting/RecipeHolder
+       230: putfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+       233: return
+
+  protected boolean validateRecipe(R);
+    Code:
+         0: aload_1
+         1: invokevirtual #242                // Method com/tom/createores/recipe/ExcavatingRecipe.getDrill:()Lnet/minecraft/world/item/crafting/Ingredient;
+         4: aload_0
+         5: getfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+         8: invokevirtual #246                // Method net/minecraft/world/item/crafting/Ingredient.test:(Lnet/minecraft/world/item/ItemStack;)Z
+        11: ireturn
+
+  protected abstract net.minecraft.world.item.crafting.RecipeType<R> getRecipeType();
+
+  protected abstract boolean canExtract();
+
+  protected abstract void onFinished();
+
+  public void tick();
+    Code:
+         0: aload_0
+         1: invokespecial #373                // Method com/simibubi/create/foundation/blockEntity/SmartBlockEntity.tick:()V
+         4: aload_0
+         5: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+         8: getfield      #377                // Field net/minecraft/world/level/Level.isClientSide:Z
+        11: ifne          313
+        14: aload_0
+        15: getfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        18: ifnull        282
+        21: aload_0
+        22: getfield      #13                 // Field state:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+        25: getstatic     #257                // Field com/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState.NO_ERROR:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+        28: if_acmpne     282
+        31: aload_0
+        32: getfield      #380                // Field kinetic:Lcom/tom/createores/block/entity/MultiblockCapHandler$Kinetic;
+        35: ifnull        61
+        38: aload_0
+        39: getfield      #380                // Field kinetic:Lcom/tom/createores/block/entity/MultiblockCapHandler$Kinetic;
+        42: aload_0
+        43: getfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        46: invokevirtual #365                // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+        49: checkcast     #94                 // class com/tom/createores/recipe/ExcavatingRecipe
+        52: invokevirtual #384                // Method com/tom/createores/recipe/ExcavatingRecipe.getStress:()I
+        55: i2f
+        56: invokeinterface #387,  2          // InterfaceMethod com/tom/createores/block/entity/MultiblockCapHandler$Kinetic.setStress:(F)V
+        61: aload_0
+        62: invokevirtual #393                // Method canExtract:()Z
+        65: ifeq          234
+        68: aload_0
+        69: getfield      #380                // Field kinetic:Lcom/tom/createores/block/entity/MultiblockCapHandler$Kinetic;
+        72: ifnull        234
+        75: aload_0
+        76: getfield      #380                // Field kinetic:Lcom/tom/createores/block/entity/MultiblockCapHandler$Kinetic;
+        79: invokeinterface #396,  1          // InterfaceMethod com/tom/createores/block/entity/MultiblockCapHandler$Kinetic.getRotationSpeed:()F
+        84: getstatic     #400                // Field com/simibubi/create/content/kinetics/base/IRotate$SpeedLevel.MEDIUM:Lcom/simibubi/create/content/kinetics/base/IRotate$SpeedLevel;
+        87: invokevirtual #406                // Method com/simibubi/create/content/kinetics/base/IRotate$SpeedLevel.getSpeedValue:()F
+        90: fcmpl
+        91: iflt          234
+        94: aload_0
+        95: getfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        98: invokevirtual #365                // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+       101: checkcast     #94                 // class com/tom/createores/recipe/ExcavatingRecipe
+       104: invokevirtual #242                // Method com/tom/createores/recipe/ExcavatingRecipe.getDrill:()Lnet/minecraft/world/item/crafting/Ingredient;
+       107: aload_0
+       108: getfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+       111: invokevirtual #246                // Method net/minecraft/world/item/crafting/Ingredient.test:(Lnet/minecraft/world/item/ItemStack;)Z
+       114: ifeq          234
+       117: aload_0
+       118: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+       121: aload_0
+       122: invokevirtual #192                // Method getBelow:()Lnet/minecraft/core/BlockPos;
+       125: invokevirtual #196                // Method net/minecraft/world/level/Level.getBlockState:(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;
+       128: aload_0
+       129: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+       132: aload_0
+       133: invokevirtual #192                // Method getBelow:()Lnet/minecraft/core/BlockPos;
+       136: invokevirtual #199                // Method net/minecraft/world/level/block/state/BlockState.isCollisionShapeFullBlock:(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Z
+       139: ifeq          234
+       142: aload_0
+       143: getfield      #380                // Field kinetic:Lcom/tom/createores/block/entity/MultiblockCapHandler$Kinetic;
+       146: invokeinterface #396,  1          // InterfaceMethod com/tom/createores/block/entity/MultiblockCapHandler$Kinetic.getRotationSpeed:()F
+       151: getstatic     #400                // Field com/simibubi/create/content/kinetics/base/IRotate$SpeedLevel.MEDIUM:Lcom/simibubi/create/content/kinetics/base/IRotate$SpeedLevel;
+       154: invokevirtual #406                // Method com/simibubi/create/content/kinetics/base/IRotate$SpeedLevel.getSpeedValue:()F
+       157: fdiv
+       158: fstore_1
+       159: aload_0
+       160: dup
+       161: getfield      #212                // Field progress:I
+       164: i2f
+       165: fload_1
+       166: fadd
+       167: f2i
+       168: putfield      #212                // Field progress:I
+       171: aload_0
+       172: getfield      #212                // Field progress:I
+       175: aload_0
+       176: getfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+       179: invokevirtual #365                // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+       182: checkcast     #94                 // class com/tom/createores/recipe/ExcavatingRecipe
+       185: invokevirtual #216                // Method com/tom/createores/recipe/ExcavatingRecipe.getTicks:()I
+       188: if_icmplt     231
+       191: aload_0
+       192: invokevirtual #409                // Method updateState:()V
+       195: aload_0
+       196: getfield      #13                 // Field state:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+       199: getstatic     #257                // Field com/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState.NO_ERROR:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+       202: if_acmpne     226
+       205: aload_0
+       206: invokevirtual #412                // Method onFinished:()V
+       209: aload_0
+       210: getfield      #304                // Field data:Lcom/tom/createores/OreData;
+       213: iconst_1
+       214: invokevirtual #415                // Method com/tom/createores/OreData.extract:(I)V
+       217: aload_0
+       218: iconst_1
+       219: putfield      #418                // Field completedOneCycle:Z
+       222: aload_0
+       223: invokevirtual #421                // Method setChanged:()V
+       226: aload_0
+       227: iconst_0
+       228: putfield      #212                // Field progress:I
+       231: goto          313
+       234: aload_0
+       235: getfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+       238: invokevirtual #365                // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+       241: checkcast     #94                 // class com/tom/createores/recipe/ExcavatingRecipe
+       244: invokevirtual #242                // Method com/tom/createores/recipe/ExcavatingRecipe.getDrill:()Lnet/minecraft/world/item/crafting/Ingredient;
+       247: aload_0
+       248: getfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+       251: invokevirtual #246                // Method net/minecraft/world/item/crafting/Ingredient.test:(Lnet/minecraft/world/item/ItemStack;)Z
+       254: ifne          313
+       257: aload_0
+       258: getfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+       261: astore_1
+       262: aload_0
+       263: invokevirtual #424                // Method updateRecipe:()V
+       266: aload_1
+       267: aload_0
+       268: getfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+       271: if_acmpeq     279
+       274: aload_0
+       275: iconst_0
+       276: putfield      #212                // Field progress:I
+       279: goto          313
+       282: aload_0
+       283: getfield      #212                // Field progress:I
+       286: bipush        10
+       288: if_icmple     303
+       291: aload_0
+       292: iconst_0
+       293: putfield      #212                // Field progress:I
+       296: aload_0
+       297: invokevirtual #409                // Method updateState:()V
+       300: goto          313
+       303: aload_0
+       304: dup
+       305: getfield      #212                // Field progress:I
+       308: iconst_1
+       309: iadd
+       310: putfield      #212                // Field progress:I
+       313: return
+
+  private void updateState();
+    Code:
+         0: aload_0
+         1: invokevirtual #424                // Method updateRecipe:()V
+         4: aload_0
+         5: getfield      #272                // Field vein:Lnet/minecraft/world/item/crafting/RecipeHolder;
+         8: ifnonnull     21
+        11: aload_0
+        12: getstatic     #7                  // Field com/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState.NO_VEIN:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+        15: putfield      #13                 // Field state:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+        18: goto          107
+        21: aload_0
+        22: getfield      #304                // Field data:Lcom/tom/createores/OreData;
+        25: aload_0
+        26: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+        29: aload_0
+        30: getfield      #281                // Field worldPosition:Lnet/minecraft/core/BlockPos;
+        33: invokevirtual #427                // Method com/tom/createores/OreData.canExtract:(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)Z
+        36: ifne          49
+        39: aload_0
+        40: getstatic     #430                // Field com/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState.TOO_MANY_EXCAVATORS:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+        43: putfield      #13                 // Field state:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+        46: goto          107
+        49: aload_0
+        50: getfield      #304                // Field data:Lcom/tom/createores/OreData;
+        53: aload_0
+        54: getfield      #272                // Field vein:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        57: invokevirtual #365                // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+        60: checkcast     #73                 // class com/tom/createores/recipe/VeinRecipe
+        63: invokevirtual #433                // Method com/tom/createores/OreData.getResourcesRemaining:(Lcom/tom/createores/recipe/VeinRecipe;)J
+        66: ldc2_w        #437                // long -1l
+        69: lcmp
+        70: ifne          83
+        73: aload_0
+        74: getstatic     #439                // Field com/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState.VEIN_EMPTY:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+        77: putfield      #13                 // Field state:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+        80: goto          107
+        83: aload_0
+        84: getfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        87: ifnonnull     100
+        90: aload_0
+        91: getstatic     #442                // Field com/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState.NO_RECIPE:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+        94: putfield      #13                 // Field state:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+        97: goto          107
+       100: aload_0
+       101: getstatic     #257                // Field com/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState.NO_ERROR:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+       104: putfield      #13                 // Field state:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+       107: aload_0
+       108: invokevirtual #445                // Method notifyUpdate:()V
+       111: return
+
+  public void lazyTick();
+    Code:
+         0: aload_0
+         1: invokevirtual #445                // Method notifyUpdate:()V
+         4: return
+
+  protected void read(net.minecraft.nbt.CompoundTag, net.minecraft.core.HolderLookup$Provider, boolean);
+    Code:
+         0: aload_0
+         1: aload_1
+         2: aload_2
+         3: iload_3
+         4: invokespecial #448                // Method com/simibubi/create/foundation/blockEntity/SmartBlockEntity.read:(Lnet/minecraft/nbt/CompoundTag;Lnet/minecraft/core/HolderLookup$Provider;Z)V
+         7: aload_0
+         8: aload_1
+         9: ldc_w         #452                // String progress
+        12: invokevirtual #453                // Method net/minecraft/nbt/CompoundTag.getInt:(Ljava/lang/String;)I
+        15: putfield      #212                // Field progress:I
+        18: aload_0
+        19: aload_2
+        20: aload_1
+        21: ldc_w         #459                // String drill
+        24: invokevirtual #461                // Method net/minecraft/nbt/CompoundTag.getCompound:(Ljava/lang/String;)Lnet/minecraft/nbt/CompoundTag;
+        27: invokestatic  #465                // Method net/minecraft/world/item/ItemStack.parseOptional:(Lnet/minecraft/core/HolderLookup$Provider;Lnet/minecraft/nbt/CompoundTag;)Lnet/minecraft/world/item/ItemStack;
+        30: putfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+        33: aload_0
+        34: aload_1
+        35: ldc_w         #469                // String finishedOnce
+        38: invokevirtual #471                // Method net/minecraft/nbt/CompoundTag.getBoolean:(Ljava/lang/String;)Z
+        41: putfield      #418                // Field completedOneCycle:Z
+        44: iload_3
+        45: ifeq          149
+        48: aload_0
+        49: getstatic     #475                // Field com/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState.VALUES:[Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+        52: aload_1
+        53: ldc_w         #479                // String state
+        56: invokevirtual #480                // Method net/minecraft/nbt/CompoundTag.getByte:(Ljava/lang/String;)B
+        59: aaload
+        60: putfield      #13                 // Field state:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+        63: aload_1
+        64: ldc_w         #484                // String veinId
+        67: invokevirtual #486                // Method net/minecraft/nbt/CompoundTag.contains:(Ljava/lang/String;)Z
+        70: ifeq          101
+        73: aload_0
+        74: aload_1
+        75: ldc_w         #484                // String veinId
+        78: invokevirtual #489                // Method net/minecraft/nbt/CompoundTag.getString:(Ljava/lang/String;)Ljava/lang/String;
+        81: invokestatic  #492                // Method net/minecraft/resources/ResourceLocation.tryParse:(Ljava/lang/String;)Lnet/minecraft/resources/ResourceLocation;
+        84: putfield      #31                 // Field veinClient:Lnet/minecraft/resources/ResourceLocation;
+        87: aload_0
+        88: aload_1
+        89: ldc_w         #498                // String resRem
+        92: invokevirtual #500                // Method net/minecraft/nbt/CompoundTag.getLong:(Ljava/lang/String;)J
+        95: putfield      #230                // Field resourceRemClient:J
+        98: goto          106
+       101: aload_0
+       102: aconst_null
+       103: putfield      #31                 // Field veinClient:Lnet/minecraft/resources/ResourceLocation;
+       106: aload_1
+       107: ldc_w         #504                // String currentRecipeId
+       110: invokevirtual #486                // Method net/minecraft/nbt/CompoundTag.contains:(Ljava/lang/String;)Z
+       113: ifeq          133
+       116: aload_0
+       117: aload_1
+       118: ldc_w         #504                // String currentRecipeId
+       121: invokevirtual #489                // Method net/minecraft/nbt/CompoundTag.getString:(Ljava/lang/String;)Ljava/lang/String;
+       124: invokestatic  #492                // Method net/minecraft/resources/ResourceLocation.tryParse:(Ljava/lang/String;)Lnet/minecraft/resources/ResourceLocation;
+       127: putfield      #87                 // Field recipeClient:Lnet/minecraft/resources/ResourceLocation;
+       130: goto          138
+       133: aload_0
+       134: aconst_null
+       135: putfield      #87                 // Field recipeClient:Lnet/minecraft/resources/ResourceLocation;
+       138: aload_0
+       139: aload_1
+       140: ldc_w         #506                // String hasRot
+       143: invokevirtual #471                // Method net/minecraft/nbt/CompoundTag.getBoolean:(Ljava/lang/String;)Z
+       146: putfield      #109                // Field hasRotation:Z
+       149: return
+
+  public void write(net.minecraft.nbt.CompoundTag, net.minecraft.core.HolderLookup$Provider, boolean);
+    Code:
+         0: aload_0
+         1: aload_1
+         2: aload_2
+         3: iload_3
+         4: invokespecial #508                // Method com/simibubi/create/foundation/blockEntity/SmartBlockEntity.write:(Lnet/minecraft/nbt/CompoundTag;Lnet/minecraft/core/HolderLookup$Provider;Z)V
+         7: aload_1
+         8: ldc_w         #452                // String progress
+        11: aload_0
+        12: getfield      #212                // Field progress:I
+        15: invokevirtual #511                // Method net/minecraft/nbt/CompoundTag.putInt:(Ljava/lang/String;I)V
+        18: aload_0
+        19: getfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+        22: invokevirtual #181                // Method net/minecraft/world/item/ItemStack.isEmpty:()Z
+        25: ifne          44
+        28: aload_1
+        29: ldc_w         #459                // String drill
+        32: aload_0
+        33: getfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+        36: aload_2
+        37: invokevirtual #515                // Method net/minecraft/world/item/ItemStack.save:(Lnet/minecraft/core/HolderLookup$Provider;)Lnet/minecraft/nbt/Tag;
+        40: invokevirtual #519                // Method net/minecraft/nbt/CompoundTag.put:(Ljava/lang/String;Lnet/minecraft/nbt/Tag;)Lnet/minecraft/nbt/Tag;
+        43: pop
+        44: aload_1
+        45: ldc_w         #469                // String finishedOnce
+        48: aload_0
+        49: getfield      #418                // Field completedOneCycle:Z
+        52: invokevirtual #523                // Method net/minecraft/nbt/CompoundTag.putBoolean:(Ljava/lang/String;Z)V
+        55: iload_3
+        56: ifeq          184
+        59: aload_1
+        60: ldc_w         #479                // String state
+        63: aload_0
+        64: getfield      #13                 // Field state:Lcom/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState;
+        67: invokevirtual #527                // Method com/tom/createores/block/entity/ExcavatingBlockEntity$ExcavatorState.ordinal:()I
+        70: i2b
+        71: invokevirtual #530                // Method net/minecraft/nbt/CompoundTag.putByte:(Ljava/lang/String;B)V
+        74: aload_0
+        75: getfield      #272                // Field vein:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        78: ifnull        122
+        81: aload_1
+        82: ldc_w         #484                // String veinId
+        85: aload_0
+        86: getfield      #272                // Field vein:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        89: invokevirtual #534                // Method net/minecraft/world/item/crafting/RecipeHolder.id:()Lnet/minecraft/resources/ResourceLocation;
+        92: invokevirtual #538                // Method net/minecraft/resources/ResourceLocation.toString:()Ljava/lang/String;
+        95: invokevirtual #541                // Method net/minecraft/nbt/CompoundTag.putString:(Ljava/lang/String;Ljava/lang/String;)V
+        98: aload_1
+        99: ldc_w         #498                // String resRem
+       102: aload_0
+       103: getfield      #304                // Field data:Lcom/tom/createores/OreData;
+       106: aload_0
+       107: getfield      #272                // Field vein:Lnet/minecraft/world/item/crafting/RecipeHolder;
+       110: invokevirtual #365                // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+       113: checkcast     #73                 // class com/tom/createores/recipe/VeinRecipe
+       116: invokevirtual #433                // Method com/tom/createores/OreData.getResourcesRemaining:(Lcom/tom/createores/recipe/VeinRecipe;)J
+       119: invokevirtual #545                // Method net/minecraft/nbt/CompoundTag.putLong:(Ljava/lang/String;J)V
+       122: aload_0
+       123: getfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+       126: ifnull        146
+       129: aload_1
+       130: ldc_w         #504                // String currentRecipeId
+       133: aload_0
+       134: getfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+       137: invokevirtual #534                // Method net/minecraft/world/item/crafting/RecipeHolder.id:()Lnet/minecraft/resources/ResourceLocation;
+       140: invokevirtual #538                // Method net/minecraft/resources/ResourceLocation.toString:()Ljava/lang/String;
+       143: invokevirtual #541                // Method net/minecraft/nbt/CompoundTag.putString:(Ljava/lang/String;Ljava/lang/String;)V
+       146: aload_1
+       147: ldc_w         #506                // String hasRot
+       150: aload_0
+       151: getfield      #380                // Field kinetic:Lcom/tom/createores/block/entity/MultiblockCapHandler$Kinetic;
+       154: ifnull        180
+       157: aload_0
+       158: getfield      #380                // Field kinetic:Lcom/tom/createores/block/entity/MultiblockCapHandler$Kinetic;
+       161: invokeinterface #396,  1          // InterfaceMethod com/tom/createores/block/entity/MultiblockCapHandler$Kinetic.getRotationSpeed:()F
+       166: getstatic     #400                // Field com/simibubi/create/content/kinetics/base/IRotate$SpeedLevel.MEDIUM:Lcom/simibubi/create/content/kinetics/base/IRotate$SpeedLevel;
+       169: invokevirtual #406                // Method com/simibubi/create/content/kinetics/base/IRotate$SpeedLevel.getSpeedValue:()F
+       172: fcmpl
+       173: iflt          180
+       176: iconst_1
+       177: goto          181
+       180: iconst_0
+       181: invokevirtual #523                // Method net/minecraft/nbt/CompoundTag.putBoolean:(Ljava/lang/String;Z)V
+       184: return
+
+  public void initialize();
+    Code:
+         0: aload_0
+         1: invokespecial #549                // Method com/simibubi/create/foundation/blockEntity/SmartBlockEntity.initialize:()V
+         4: aload_0
+         5: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+         8: getfield      #377                // Field net/minecraft/world/level/Level.isClientSide:Z
+        11: ifne          44
+        14: aload_0
+        15: getfield      #212                // Field progress:I
+        18: ifle          32
+        21: aload_0
+        22: getfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        25: ifnonnull     32
+        28: aload_0
+        29: invokevirtual #424                // Method updateRecipe:()V
+        32: aload_0
+        33: getfield      #276                // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        36: ifnonnull     44
+        39: aload_0
+        40: iconst_0
+        41: putfield      #212                // Field progress:I
+        44: return
+
+  public net.minecraft.world.item.ItemStack getDrill();
+    Code:
+         0: aload_0
+         1: getfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+         4: areturn
+
+  public net.minecraft.core.BlockPos getBelow();
+    Code:
+         0: aload_0
+         1: getfield      #281                // Field worldPosition:Lnet/minecraft/core/BlockPos;
+         4: iconst_2
+         5: invokevirtual #552                // Method net/minecraft/core/BlockPos.below:(I)Lnet/minecraft/core/BlockPos;
+         8: areturn
+
+  public void addKinetic(com.tom.createores.block.entity.MultiblockCapHandler$Kinetic);
+    Code:
+         0: aload_0
+         1: aload_1
+         2: putfield      #380                // Field kinetic:Lcom/tom/createores/block/entity/MultiblockCapHandler$Kinetic;
+         5: return
+
+  public void dropInv();
+    Code:
+         0: aload_0
+         1: aload_0
+         2: getfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+         5: invokevirtual #558                // Method dropItemStack:(Lnet/minecraft/world/item/ItemStack;)V
+         8: return
+
+  public net.minecraft.world.ItemInteractionResult onClick(net.minecraft.world.entity.player.Player, net.minecraft.world.InteractionHand);
+    Code:
+         0: aload_1
+         1: aload_2
+         2: invokevirtual #562                // Method net/minecraft/world/entity/player/Player.getItemInHand:(Lnet/minecraft/world/InteractionHand;)Lnet/minecraft/world/item/ItemStack;
+         5: astore_3
+         6: aload_3
+         7: invokevirtual #568                // Method net/minecraft/world/item/ItemStack.getItem:()Lnet/minecraft/world/item/Item;
+        10: getstatic     #572                // Field com/tom/createores/Registration.VEIN_ATLAS_ITEM:Lcom/tterrag/registrate/util/entry/ItemEntry;
+        13: invokevirtual #578                // Method com/tterrag/registrate/util/entry/ItemEntry.get:()Ljava/lang/Object;
+        16: if_acmpne     94
+        19: aload_0
+        20: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+        23: getfield      #377                // Field net/minecraft/world/level/Level.isClientSide:Z
+        26: ifne          90
+        29: aload_0
+        30: getfield      #418                // Field completedOneCycle:Z
+        33: ifeq          79
+        36: getstatic     #572                // Field com/tom/createores/Registration.VEIN_ATLAS_ITEM:Lcom/tterrag/registrate/util/entry/ItemEntry;
+        39: invokevirtual #578                // Method com/tterrag/registrate/util/entry/ItemEntry.get:()Ljava/lang/Object;
+        42: checkcast     #582                // class com/tom/createores/item/OreVeinAtlasItem
+        45: aload_1
+        46: aload_3
+        47: aload_0
+        48: getfield      #272                // Field vein:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        51: new           #584                // class com/tom/createores/util/DimChunkPos
+        54: dup
+        55: aload_0
+        56: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+        59: aload_0
+        60: getfield      #281                // Field worldPosition:Lnet/minecraft/core/BlockPos;
+        63: invokespecial #586                // Method com/tom/createores/util/DimChunkPos."<init>":(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)V
+        66: aload_0
+        67: getfield      #304                // Field data:Lcom/tom/createores/OreData;
+        70: invokevirtual #589                // Method com/tom/createores/OreData.getRandomMul:()F
+        73: invokevirtual #592                // Method com/tom/createores/item/OreVeinAtlasItem.addVein:(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/crafting/RecipeHolder;Lcom/tom/createores/util/DimChunkPos;F)V
+        76: goto          90
+        79: aload_1
+        80: ldc_w         #596                // String chat.coe.sampleDrill.notDone
+        83: invokestatic  #81                 // InterfaceMethod net/minecraft/network/chat/Component.translatable:(Ljava/lang/String;)Lnet/minecraft/network/chat/MutableComponent;
+        86: iconst_1
+        87: invokevirtual #598                // Method net/minecraft/world/entity/player/Player.displayClientMessage:(Lnet/minecraft/network/chat/Component;Z)V
+        90: getstatic     #602                // Field net/minecraft/world/ItemInteractionResult.SUCCESS:Lnet/minecraft/world/ItemInteractionResult;
+        93: areturn
+        94: aload_3
+        95: getstatic     #608                // Field com/tom/createores/CreateOreExcavation.DRILL_TAG:Lnet/minecraft/tags/TagKey;
+        98: invokevirtual #614                // Method net/minecraft/world/item/ItemStack.is:(Lnet/minecraft/tags/TagKey;)Z
+       101: ifeq          141
+       104: aload_0
+       105: getfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+       108: invokevirtual #181                // Method net/minecraft/world/item/ItemStack.isEmpty:()Z
+       111: ifeq          141
+       114: aload_0
+       115: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+       118: getfield      #377                // Field net/minecraft/world/level/Level.isClientSide:Z
+       121: ifne          133
+       124: aload_0
+       125: aload_3
+       126: iconst_1
+       127: invokevirtual #618                // Method net/minecraft/world/item/ItemStack.split:(I)Lnet/minecraft/world/item/ItemStack;
+       130: putfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+       133: aload_0
+       134: invokevirtual #445                // Method notifyUpdate:()V
+       137: getstatic     #602                // Field net/minecraft/world/ItemInteractionResult.SUCCESS:Lnet/minecraft/world/ItemInteractionResult;
+       140: areturn
+       141: getstatic     #622                // Field net/minecraft/world/ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION:Lnet/minecraft/world/ItemInteractionResult;
+       144: areturn
+
+  public net.minecraft.world.InteractionResult onClick(net.minecraft.world.entity.player.Player);
+    Code:
+         0: aload_0
+         1: getfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+         4: invokevirtual #181                // Method net/minecraft/world/item/ItemStack.isEmpty:()Z
+         7: ifne          54
+        10: aload_0
+        11: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+        14: getfield      #377                // Field net/minecraft/world/level/Level.isClientSide:Z
+        17: ifne          50
+        20: aload_1
+        21: aload_0
+        22: getfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+        25: invokevirtual #625                // Method net/minecraft/world/entity/player/Player.addItem:(Lnet/minecraft/world/item/ItemStack;)Z
+        28: ifeq          46
+        31: aload_0
+        32: getstatic     #18                 // Field net/minecraft/world/item/ItemStack.EMPTY:Lnet/minecraft/world/item/ItemStack;
+        35: putfield      #24                 // Field drillStack:Lnet/minecraft/world/item/ItemStack;
+        38: aload_0
+        39: invokevirtual #445                // Method notifyUpdate:()V
+        42: getstatic     #628                // Field net/minecraft/world/InteractionResult.CONSUME:Lnet/minecraft/world/InteractionResult;
+        45: areturn
+        46: getstatic     #634                // Field net/minecraft/world/InteractionResult.SUCCESS:Lnet/minecraft/world/InteractionResult;
+        49: areturn
+        50: getstatic     #634                // Field net/minecraft/world/InteractionResult.SUCCESS:Lnet/minecraft/world/InteractionResult;
+        53: areturn
+        54: getstatic     #636                // Field net/minecraft/world/InteractionResult.PASS:Lnet/minecraft/world/InteractionResult;
+        57: areturn
+
+  public void addBehaviours(java.util.List<com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour>);
+    Code:
+         0: return
+
+  protected void dropItemStack(net.minecraft.world.item.ItemStack);
+    Code:
+         0: aload_0
+         1: getfield      #35                 // Field level:Lnet/minecraft/world/level/Level;
+         4: aload_0
+         5: getfield      #281                // Field worldPosition:Lnet/minecraft/core/BlockPos;
+         8: invokevirtual #639                // Method net/minecraft/core/BlockPos.getX:()I
+        11: i2d
+        12: aload_0
+        13: getfield      #281                // Field worldPosition:Lnet/minecraft/core/BlockPos;
+        16: invokevirtual #642                // Method net/minecraft/core/BlockPos.getY:()I
+        19: i2d
+        20: aload_0
+        21: getfield      #281                // Field worldPosition:Lnet/minecraft/core/BlockPos;
+        24: invokevirtual #645                // Method net/minecraft/core/BlockPos.getZ:()I
+        27: i2d
+        28: aload_1
+        29: invokestatic  #648                // Method net/minecraft/world/Containers.dropItemStack:(Lnet/minecraft/world/level/Level;DDDLnet/minecraft/world/item/ItemStack;)V
+        32: return
+
+  protected net.minecraft.world.phys.AABB createRenderBoundingBox();
+    Code:
+         0: aload_0
+         1: getfield      #281                // Field worldPosition:Lnet/minecraft/core/BlockPos;
+         4: iconst_m1
+         5: iconst_m1
+         6: iconst_m1
+         7: invokevirtual #653                // Method net/minecraft/core/BlockPos.offset:(III)Lnet/minecraft/core/BlockPos;
+        10: aload_0
+        11: getfield      #281                // Field worldPosition:Lnet/minecraft/core/BlockPos;
+        14: iconst_1
+        15: iconst_0
+        16: iconst_1
+        17: invokevirtual #653                // Method net/minecraft/core/BlockPos.offset:(III)Lnet/minecraft/core/BlockPos;
+        20: invokestatic  #657                // Method net/minecraft/world/phys/AABB.encapsulatingFullBlocks:(Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/phys/AABB;
+        23: areturn
+
+  public net.minecraft.core.Direction getFacing();
+    Code:
+         0: aload_0
+         1: invokevirtual #134                // Method getBlockState:()Lnet/minecraft/world/level/block/state/BlockState;
+         4: getstatic     #663                // Field net/minecraft/world/level/block/state/properties/BlockStateProperties.HORIZONTAL_FACING:Lnet/minecraft/world/level/block/state/properties/DirectionProperty;
+         7: invokevirtual #669                // Method net/minecraft/world/level/block/state/BlockState.getValue:(Lnet/minecraft/world/level/block/state/properties/Property;)Ljava/lang/Comparable;
+        10: checkcast     #673                // class net/minecraft/core/Direction
+        13: areturn
+
+  public boolean shouldRenderRubble();
+    Code:
+         0: aload_0
+         1: getfield      #418                // Field completedOneCycle:Z
+         4: ifne          21
+         7: aload_0
+         8: getfield      #87                 // Field recipeClient:Lnet/minecraft/resources/ResourceLocation;
+        11: ifnull        25
+        14: aload_0
+        15: getfield      #212                // Field progress:I
+        18: ifle          25
+        21: iconst_1
+        22: goto          26
+        25: iconst_0
+        26: ireturn
+
+  public float getYOffset();
+    Code:
+         0: ldc_w         #675                // float 0.8f
+         3: freturn
+
+  public float getDrillOffset();
+    Code:
+         0: aload_0
+         1: invokevirtual #676                // Method isActive:()Z
+         4: ifeq          13
+         7: ldc_w         #679                // float 0.2f
+        10: goto          14
+        13: fconst_0
+        14: freturn
+
+  private boolean isActive();
+    Code:
+         0: aload_0
+         1: getfield      #87                 // Field recipeClient:Lnet/minecraft/resources/ResourceLocation;
+         4: ifnull        18
+         7: aload_0
+         8: getfield      #109                // Field hasRotation:Z
+        11: ifeq          18
+        14: iconst_1
+        15: goto          19
+        18: iconst_0
+        19: ireturn
+
+  public float getRotation();
+    Code:
+         0: aload_0
+         1: invokevirtual #676                // Method isActive:()Z
+         4: ifeq          28
+         7: aload_0
+         8: invokevirtual #680                // Method getLevel:()Lnet/minecraft/world/level/Level;
+        11: invokevirtual #684                // Method net/minecraft/world/level/Level.getGameTime:()J
+        14: lstore_1
+        15: lload_1
+        16: ldc2_w        #688                // long 20l
+        19: lmul
+        20: ldc2_w        #690                // long 360l
+        23: lrem
+        24: l2f
+        25: fstore_3
+        26: fload_3
+        27: freturn
+        28: fconst_0
+        29: freturn
+
+  public float getPrevRotation();
+    Code:
+         0: aload_0
+         1: invokevirtual #676                // Method isActive:()Z
+         4: ifeq          30
+         7: aload_0
+         8: invokevirtual #680                // Method getLevel:()Lnet/minecraft/world/level/Level;
+        11: invokevirtual #684                // Method net/minecraft/world/level/Level.getGameTime:()J
+        14: lconst_1
+        15: lsub
+        16: lstore_1
+        17: lload_1
+        18: ldc2_w        #688                // long 20l
+        21: lmul
+        22: ldc2_w        #690                // long 360l
+        25: lrem
+        26: l2f
+        27: fstore_3
+        28: fload_3
+        29: freturn
+        30: fconst_0
+        31: freturn
+
+  public boolean shouldRenderShaft();
+    Code:
+         0: iconst_1
+         1: ireturn
+
+  private static int lambda$updateRecipe$5(net.minecraft.world.item.crafting.RecipeHolder);
+    Code:
+         0: aload_0
+         1: invokevirtual #365                // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+         4: checkcast     #94                 // class com/tom/createores/recipe/ExcavatingRecipe
+         7: getfield      #692                // Field com/tom/createores/recipe/ExcavatingRecipe.priority:I
+        10: ireturn
+
+  private boolean lambda$updateRecipe$4(net.minecraft.world.item.crafting.RecipeHolder);
+    Code:
+         0: aload_1
+         1: invokevirtual #365                // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+         4: checkcast     #94                 // class com/tom/createores/recipe/ExcavatingRecipe
+         7: getfield      #695                // Field com/tom/createores/recipe/ExcavatingRecipe.veinId:Lnet/minecraft/resources/ResourceLocation;
+        10: aload_0
+        11: getfield      #272                // Field vein:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        14: invokevirtual #534                // Method net/minecraft/world/item/crafting/RecipeHolder.id:()Lnet/minecraft/resources/ResourceLocation;
+        17: invokevirtual #697                // Method net/minecraft/resources/ResourceLocation.equals:(Ljava/lang/Object;)Z
+        20: ireturn
+
+  private static com.tom.createores.recipe.ExcavatingRecipe lambda$addToGoggleTooltip$3(net.minecraft.world.item.crafting.RecipeHolder);
+    Code:
+         0: aload_0
+         1: invokevirtual #365                // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+         4: checkcast     #94                 // class com/tom/createores/recipe/ExcavatingRecipe
+         7: areturn
+
+  private boolean lambda$addToGoggleTooltip$2(net.minecraft.world.item.crafting.RecipeHolder);
+    Code:
+         0: aload_1
+         1: invokevirtual #365                // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+         4: invokeinterface #701,  1          // InterfaceMethod net/minecraft/world/item/crafting/Recipe.getType:()Lnet/minecraft/world/item/crafting/RecipeType;
+         9: aload_0
+        10: invokevirtual #314                // Method getRecipeType:()Lnet/minecraft/world/item/crafting/RecipeType;
+        13: if_acmpne     20
+        16: iconst_1
+        17: goto          21
+        20: iconst_0
+        21: ireturn
+
+  private static com.tom.createores.recipe.VeinRecipe lambda$addToGoggleTooltip$1(net.minecraft.world.item.crafting.RecipeHolder);
+    Code:
+         0: aload_0
+         1: invokevirtual #365                // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+         4: checkcast     #73                 // class com/tom/createores/recipe/VeinRecipe
+         7: areturn
+
+  private static boolean lambda$addToGoggleTooltip$0(net.minecraft.world.item.crafting.RecipeHolder);
+    Code:
+         0: aload_0
+         1: invokevirtual #365                // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+         4: instanceof    #73                 // class com/tom/createores/recipe/VeinRecipe
+         7: ireturn
+}

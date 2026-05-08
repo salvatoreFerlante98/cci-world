@@ -3,6 +3,9 @@ package com.cciworld.command;
 import com.cciworld.coe.COEVeinIds;
 import com.cciworld.coe.COEVeinWriter;
 import com.cciworld.config.CCIWorldConfig;
+import com.cciworld.generator.ClusterDecision;
+import com.cciworld.generator.ClusterGenerator;
+import com.cciworld.generator.ClusterGeneratorEngine;
 import com.cciworld.policy.AutomaticPolicyEngine;
 import com.cciworld.policy.BiomePolicyRule;
 import com.cciworld.policy.DistanceBand;
@@ -53,6 +56,8 @@ public final class CCIWorldCommands {
                 .then(Commands.literal("set_test_vein")
                     .then(Commands.argument("alias", StringArgumentType.word())
                         .executes(CCIWorldCommands::setTestVein)))
+                .then(Commands.literal("set_test_no_vein")
+                    .executes(CCIWorldCommands::setTestNoVein))
                 .then(Commands.literal("replace_test_vein")
                     .then(Commands.argument("from", StringArgumentType.word())
                         .then(Commands.argument("to", StringArgumentType.word())
@@ -78,6 +83,12 @@ public final class CCIWorldCommands {
                     .executes(CCIWorldCommands::selftest))
                 .then(Commands.literal("selftest_policy_matrix")
                     .executes(CCIWorldCommands::selftestPolicyMatrix))
+                .then(Commands.literal("debug_generator_here")
+                    .executes(CCIWorldCommands::debugGeneratorHere))
+                .then(Commands.literal("generator_status")
+                    .executes(CCIWorldCommands::generatorStatus))
+                .then(Commands.literal("selftest_generator")
+                    .executes(CCIWorldCommands::selftestGenerator))
         );
     }
 
@@ -145,6 +156,53 @@ public final class CCIWorldCommands {
 
             src.sendSuccess(() -> Component.literal(msg), false);
             return 1;
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("[CCI World] error: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // set_test_no_vein — sets the current chunk to a "no useful vein" state.
+    // Audit (COE 1.6.8): recipe=null + loaded=true is a state already produced
+    // natively by OreData.populate() when OreVeinGenerator.pick() returns null,
+    // and is null-safe across save(), getRecipe(rm) and ExcavatingBlockEntity.
+    // -------------------------------------------------------------------------
+
+    private static int setTestNoVein(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        try {
+            ServerPlayer player = src.getPlayerOrException();
+            ServerLevel level = player.serverLevel();
+            LevelChunk chunk = level.getChunkAt(player.blockPosition());
+
+            OreData before = OreDataAttachment.getData(chunk);
+            ResourceLocation previousId = before.getRecipeId();
+            boolean previousLoaded = before.isLoaded();
+            float previousRandomMul = before.getRandomMul();
+
+            COEVeinWriter.writeNoVein(chunk);
+
+            OreData after = OreDataAttachment.getData(chunk);
+            ResourceLocation newId = after.getRecipeId();
+            boolean ok = newId == null && after.isLoaded();
+
+            String msg = "[CCI World] set_test_no_vein " + (ok ? "SUCCESS" : "FAILURE") +
+                "\n  dimension:        " + level.dimension().location() +
+                "\n  chunk x/z:        " + chunk.getPos().x + " / " + chunk.getPos().z +
+                "\n  previous recipe:  " + (previousId != null ? previousId : "none") +
+                "\n  previous loaded:  " + previousLoaded +
+                "\n  previous randMul: " + previousRandomMul +
+                "\n  new recipe:       " + (newId != null ? newId : "none (null)") +
+                "\n  new loaded:       " + after.isLoaded() +
+                "\n  new randomMul:    " + after.getRandomMul() +
+                "\n  extractedAmount:  reset to 0 (not readable via public API)" +
+                "\n[WARN] no-vein state (recipe=null, loaded=true) is experimental;" +
+                "\n       it mirrors what COE.populate() produces when pick()=null." +
+                "\n       Restore with /cci_world set_test_vein <alias>.";
+
+            src.sendSuccess(() -> Component.literal(msg), false);
+            return ok ? 1 : 0;
         } catch (Exception e) {
             src.sendFailure(Component.literal("[CCI World] error: " + e.getMessage()));
             return 0;
@@ -754,6 +812,30 @@ public final class CCIWorldCommands {
                     fail(sb, stats, "replace iron -> copper — got: " + OreDataAttachment.getData(chunk).getRecipeId());
                 }
 
+                // --- no-vein experimental section ---------------------------
+                // Audit (COE 1.6.8): recipe=null is null-safe in save(),
+                // getRecipe(rm) and ExcavatingBlockEntity. We treat it as
+                // supported. If anything throws here we report [SKIP].
+                try {
+                    COEVeinWriter.writeNoVein(chunk);
+                    OreData afterNoVein = OreDataAttachment.getData(chunk);
+                    if (afterNoVein.getRecipeId() == null && afterNoVein.isLoaded()) {
+                        pass(sb, stats, "set no-vein (recipe=null, loaded=true)");
+                        // read-back: getRecipe(rm) must not throw and must return null
+                        var rh = afterNoVein.getRecipe(recipeMgr);
+                        if (rh == null) {
+                            pass(sb, stats, "no-vein read-back: getRecipe(rm) == null (no crash)");
+                        } else {
+                            fail(sb, stats, "no-vein read-back: getRecipe(rm) returned non-null: " + rh.id());
+                        }
+                    } else {
+                        fail(sb, stats, "set no-vein — got recipe=" + afterNoVein.getRecipeId() + " loaded=" + afterNoVein.isLoaded());
+                    }
+                } catch (Throwable t) {
+                    sb.append("\n  [SKIP] no-vein unsupported: ").append(t.getClass().getSimpleName()).append(": ").append(t.getMessage());
+                }
+                // ------------------------------------------------------------
+
                 PolicyResult pr = ResourcePolicyService.inspect(level, chunk);
                 pass(sb, stats, "policy evaluation: reason=" + pr.reason()
                     + " policyType=" + pr.policyType()
@@ -1054,6 +1136,215 @@ public final class CCIWorldCommands {
     // -------------------------------------------------------------------------
     // Selftest helpers
     // -------------------------------------------------------------------------
+
+    // -------------------------------------------------------------------------
+    // v0.5 — debug_generator_here
+    // -------------------------------------------------------------------------
+
+    private static int debugGeneratorHere(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        try {
+            ServerPlayer player = src.getPlayerOrException();
+            ServerLevel level = player.serverLevel();
+            LevelChunk chunk = level.getChunkAt(player.blockPosition());
+
+            ClusterDecision decision = ClusterGenerator.decide(level, chunk);
+            OreData before = OreDataAttachment.getData(chunk);
+            ResourceLocation previousId = before.getRecipeId();
+
+            String resStr = decision.isNoVein() ? "NO_VEIN" : decision.finalRecipe().toString();
+            String biomeStr = decision.biome() != null ? decision.biome().toString() : "unknown";
+            boolean wouldWrite = !java.util.Objects.equals(decision.finalRecipe(), previousId)
+                || (!decision.isNoVein() && !before.isLoaded());
+
+            String centerStr = (decision.centerX() == 0 && decision.centerZ() == 0 && decision.radiusBlocks() == 0)
+                ? "(none — empty cell)"
+                : decision.centerX() + " / " + decision.centerZ();
+            String msg = "[CCI World] debug_generator_here" +
+                "\n  dimension:           " + level.dimension().location() +
+                "\n  chunk x/z:           " + decision.chunkX() + " / " + decision.chunkZ() +
+                "\n  distance_from_spawn: " + decision.distanceBlocks() + " blocks" +
+                "\n  biome:               " + biomeStr +
+                "\n  cell x/z:            " + decision.cellX() + " / " + decision.cellZ() +
+                "\n                       (cell_size_chunks=" + CCIWorldConfig.GEN_CELL_SIZE_CHUNKS.get() + ")" +
+                "\n  cluster center:      " + centerStr +
+                "\n  cluster radius:      " + decision.radiusBlocks() + " blocks" +
+                "\n  dist_from_center:    " + decision.distanceFromCenterBlocks() + " blocks" +
+                "\n  selected resource:   " + resStr +
+                "\n  final recipe:        " + (decision.isNoVein() ? "null (no-vein)" : decision.finalRecipe()) +
+                "\n  reason:              " + decision.reason() +
+                "\n  cluster_id (hash):   " + Long.toHexString(decision.clusterId()) +
+                "\n  random_roll:         " + String.format("%.6f", decision.roll()) +
+                "\n  current ore_data:    " + (previousId != null ? previousId : "none") +
+                "\n  would_overwrite:     " + wouldWrite +
+                "\n  authoritative_gen:   " + CCIWorldConfig.AUTHORITATIVE_GENERATION_ENABLED.get() +
+                "\n[INFO] this command is read-only; OreData is not written.";
+
+            src.sendSuccess(() -> Component.literal(msg), false);
+            return 1;
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("[CCI World] error: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // v0.5 — generator_status
+    // -------------------------------------------------------------------------
+
+    private static int generatorStatus(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        try {
+            StringBuilder sb = new StringBuilder("[CCI World] generator_status");
+            sb.append("\n  enabled:             ").append(CCIWorldConfig.AUTHORITATIVE_GENERATION_ENABLED.get());
+            sb.append("\n  policy_engine_v0.4:  ").append(CCIWorldConfig.POLICY_ENGINE_ENABLED.get())
+              .append(CCIWorldConfig.AUTHORITATIVE_GENERATION_ENABLED.get() && CCIWorldConfig.POLICY_ENGINE_ENABLED.get()
+                  ? " [SUPPRESSED — authoritative owns OreData]" : "");
+            sb.append("\n  cell_size_chunks:    ").append(CCIWorldConfig.GEN_CELL_SIZE_CHUNKS.get());
+            sb.append("\n  no_vein_chance:      ").append(CCIWorldConfig.GEN_NO_VEIN_CHANCE.get());
+            sb.append("\n  chunks_per_tick:     ").append(CCIWorldConfig.GEN_CHUNKS_PER_TICK.get());
+            sb.append("\n  max_pending_jobs:    ").append(CCIWorldConfig.MAX_PENDING_GEN_JOBS.get());
+            sb.append("\n  queue size:          ").append(ClusterGeneratorEngine.getQueueSize());
+            sb.append("\n  session cache:       ").append(ClusterGeneratorEngine.getSessionCacheSize());
+            sb.append("\n  total processed:     ").append(ClusterGeneratorEngine.getTotalProcessed());
+            sb.append("\n  total written:       ").append(ClusterGeneratorEngine.getTotalWritten());
+            sb.append("\n  total no-vein:       ").append(ClusterGeneratorEngine.getTotalNoVein());
+            sb.append("\n  skipped unloaded:    ").append(ClusterGeneratorEngine.getTotalSkippedUnloaded());
+            sb.append("\n  skipped cached:      ").append(ClusterGeneratorEngine.getTotalSkippedCached());
+            Map<ResourceLocation, Integer> writes = ClusterGeneratorEngine.getWritesByResource();
+            if (writes.isEmpty()) {
+                sb.append("\n  writes_by_resource:  (none)");
+            } else {
+                sb.append("\n  writes_by_resource:");
+                writes.forEach((k, v) -> sb.append("\n    ").append(k).append(" -> ").append(v));
+            }
+            String msg = sb.toString();
+            src.sendSuccess(() -> Component.literal(msg), false);
+            return 1;
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("[CCI World] error: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // v0.5 — selftest_generator
+    // -------------------------------------------------------------------------
+
+    private static int selftestGenerator(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        StringBuilder sb = new StringBuilder("[CCI World] selftest_generator");
+        int[] stats = {0, 0};
+        try {
+            ServerPlayer player = src.getPlayerOrException();
+            ServerLevel level = player.serverLevel();
+            LevelChunk chunk = level.getChunkAt(player.blockPosition());
+
+            // 1. Determinism: same chunk twice -> same decision
+            ClusterDecision d1 = ClusterGenerator.decide(level, chunk);
+            ClusterDecision d2 = ClusterGenerator.decide(level, chunk);
+            if (d1.clusterId() == d2.clusterId()
+                && java.util.Objects.equals(d1.finalRecipe(), d2.finalRecipe())
+                && d1.distanceBlocks() == d2.distanceBlocks()) {
+                pass(sb, stats, "deterministic decision (clusterId=" + Long.toHexString(d1.clusterId()) + ")");
+            } else {
+                fail(sb, stats, "non-deterministic: d1.recipe=" + d1.finalRecipe() + " d2.recipe=" + d2.finalRecipe());
+            }
+
+            // 2. Distance is non-negative
+            if (d1.distanceBlocks() >= 0) pass(sb, stats, "distance >= 0: " + d1.distanceBlocks() + " blocks");
+            else fail(sb, stats, "distance negative: " + d1.distanceBlocks());
+
+            // 3. Roll in [0,1)
+            if (d1.roll() >= 0.0 && d1.roll() < 1.0) pass(sb, stats, "roll in [0,1): " + String.format("%.6f", d1.roll()));
+            else fail(sb, stats, "roll out of [0,1): " + d1.roll());
+
+            // 4. Reason matches outcome
+            boolean reasonOk = d1.isNoVein()
+                ? (d1.reason().equals("no_vein_cell_roll")
+                    || d1.reason().equals("out_of_all_rings")
+                    || d1.reason().startsWith("outside_cluster_radius:"))
+                : d1.reason().startsWith("in_cluster:");
+            if (reasonOk) pass(sb, stats, "reason matches outcome: " + d1.reason());
+            else fail(sb, stats, "reason inconsistent: reason=" + d1.reason() + " recipe=" + d1.finalRecipe());
+
+            // 4b. Cluster cohesion: chunks in the same cell share the same cluster_id
+            int cellSize = CCIWorldConfig.GEN_CELL_SIZE_CHUNKS.get();
+            int sameCellCx = (d1.cellX() * cellSize); // first chunk of the same cell
+            int sameCellCz = (d1.cellZ() * cellSize);
+            LevelChunk neighbor = level.getChunkSource().getChunkNow(sameCellCx, sameCellCz);
+            if (neighbor != null && (neighbor.getPos().x != chunk.getPos().x || neighbor.getPos().z != chunk.getPos().z)) {
+                ClusterDecision dn = ClusterGenerator.decide(level, neighbor);
+                if (dn.cellX() == d1.cellX() && dn.cellZ() == d1.cellZ() && dn.clusterId() == d1.clusterId()) {
+                    pass(sb, stats, "cell cohesion: same cell -> same clusterId");
+                } else {
+                    fail(sb, stats, "cell cohesion broken: cellHere=" + d1.cellX() + "/" + d1.cellZ()
+                        + " idHere=" + Long.toHexString(d1.clusterId())
+                        + " cellNbr=" + dn.cellX() + "/" + dn.cellZ()
+                        + " idNbr=" + Long.toHexString(dn.clusterId()));
+                }
+            } else {
+                sb.append("\n[INFO] cell cohesion: neighbor chunk not loaded — skipped");
+            }
+
+            // 5. If a recipe was chosen it exists in COE
+            if (!d1.isNoVein()) {
+                if (COEVeinWriter.veinExists(src.getServer().getRecipeManager(), d1.finalRecipe()))
+                    pass(sb, stats, "chosen recipe exists in COE: " + d1.finalRecipe());
+                else
+                    fail(sb, stats, "chosen recipe NOT in COE recipe manager: " + d1.finalRecipe());
+            } else {
+                sb.append("\n[INFO] decision is no-vein — skipping recipe-existence check");
+            }
+
+            // 6. Sample distribution: run 256 synthetic chunks around player and count outcomes
+            int noVein = 0, withVein = 0;
+            Map<String, Integer> ringCounts = new java.util.LinkedHashMap<>();
+            int baseX = chunk.getPos().x;
+            int baseZ = chunk.getPos().z;
+            for (int dx = -8; dx < 8; dx++) {
+                for (int dz = -8; dz < 8; dz++) {
+                    LevelChunk c = level.getChunkSource().getChunkNow(baseX + dx, baseZ + dz);
+                    if (c == null) continue;
+                    ClusterDecision dd = ClusterGenerator.decide(level, c);
+                    if (dd.isNoVein()) noVein++;
+                    else { withVein++; ringCounts.merge(dd.reason(), 1, Integer::sum); }
+                }
+            }
+            int sampled = noVein + withVein;
+            if (sampled > 0) {
+                pass(sb, stats, "sampled " + sampled + " loaded chunks: vein=" + withVein + " no-vein=" + noVein);
+                ringCounts.forEach((k, v) -> sb.append("\n    ").append(k).append(" -> ").append(v));
+            } else {
+                sb.append("\n[INFO] no neighboring chunks loaded — skip distribution sample");
+            }
+
+            // 7. Write the decision and read back
+            ClusterGeneratorEngine.writeDecision(chunk, d1);
+            OreData after = OreDataAttachment.getData(chunk);
+            if (d1.isNoVein()) {
+                if (after.getRecipeId() == null && after.isLoaded())
+                    pass(sb, stats, "write+readback no-vein OK");
+                else
+                    fail(sb, stats, "write+readback no-vein got recipe=" + after.getRecipeId() + " loaded=" + after.isLoaded());
+            } else {
+                if (d1.finalRecipe().equals(after.getRecipeId()))
+                    pass(sb, stats, "write+readback recipe OK: " + after.getRecipeId());
+                else
+                    fail(sb, stats, "write+readback recipe mismatch: expected=" + d1.finalRecipe() + " got=" + after.getRecipeId());
+            }
+
+            sb.append("\n--- ").append(stats[0]).append(" passed, ").append(stats[1]).append(" failed ---");
+            sb.append("\n[WARN] this test wrote OreData on the current chunk; restore via /cci_world set_test_vein <alias> if needed.");
+        } catch (Exception e) {
+            fail(sb, stats, "exception: " + e.getMessage());
+            sb.append("\n--- ").append(stats[0]).append(" passed, ").append(stats[1]).append(" failed ---");
+        }
+        int finalFail = stats[1];
+        String msg = sb.toString();
+        src.sendSuccess(() -> Component.literal(msg), false);
+        return finalFail == 0 ? 1 : 0;
+    }
 
     private static void pass(StringBuilder sb, int[] stats, String detail) {
         sb.append("\n[PASS] ").append(detail);

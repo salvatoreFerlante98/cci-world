@@ -2,6 +2,7 @@ package com.cciworld;
 
 import com.cciworld.command.CCIWorldCommands;
 import com.cciworld.config.CCIWorldConfig;
+import com.cciworld.generator.ClusterGeneratorEngine;
 import com.cciworld.policy.AutomaticPolicyEngine;
 import com.mojang.logging.LogUtils;
 import net.neoforged.bus.api.IEventBus;
@@ -23,6 +24,8 @@ public class cciworldveinmanipulation {
         NeoForge.EVENT_BUS.addListener(this::registerCommands);
         NeoForge.EVENT_BUS.addListener(AutomaticPolicyEngine::onServerTickPost);
         NeoForge.EVENT_BUS.addListener(AutomaticPolicyEngine::onChunkLoad);
+        NeoForge.EVENT_BUS.addListener(ClusterGeneratorEngine::onServerTickPost);
+        NeoForge.EVENT_BUS.addListener(ClusterGeneratorEngine::onChunkLoad);
         LOGGER.info("CCI World loaded");
     }
 

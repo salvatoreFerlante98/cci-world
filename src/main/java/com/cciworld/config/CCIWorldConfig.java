@@ -41,6 +41,21 @@ public final class CCIWorldConfig {
     public static final ModConfigSpec.ConfigValue<Boolean> PROCESSED_CACHE_ENABLED;
     public static final ModConfigSpec.ConfigValue<String> REPLACEMENT_DEFAULT;
 
+    // --- v0.5 authoritative cluster generator ---
+    public static final ModConfigSpec.ConfigValue<Boolean> AUTHORITATIVE_GENERATION_ENABLED;
+    public static final ModConfigSpec.IntValue GEN_CHUNKS_PER_TICK;
+    public static final ModConfigSpec.IntValue MAX_PENDING_GEN_JOBS;
+    public static final ModConfigSpec.IntValue GEN_CELL_SIZE_CHUNKS;
+    public static final ModConfigSpec.DoubleValue GEN_NO_VEIN_CHANCE;
+
+    // Per-resource ring config (min/max distance in blocks, weight, radius range in blocks)
+    public static final ModConfigSpec.IntValue GEN_COAL_MIN, GEN_COAL_MAX, GEN_COAL_WEIGHT, GEN_COAL_RMIN, GEN_COAL_RMAX;
+    public static final ModConfigSpec.IntValue GEN_IRON_MIN, GEN_IRON_MAX, GEN_IRON_WEIGHT, GEN_IRON_RMIN, GEN_IRON_RMAX;
+    public static final ModConfigSpec.IntValue GEN_COPPER_MIN, GEN_COPPER_MAX, GEN_COPPER_WEIGHT, GEN_COPPER_RMIN, GEN_COPPER_RMAX;
+    public static final ModConfigSpec.IntValue GEN_ZINC_MIN, GEN_ZINC_MAX, GEN_ZINC_WEIGHT, GEN_ZINC_RMIN, GEN_ZINC_RMAX;
+    public static final ModConfigSpec.IntValue GEN_REDSTONE_MIN, GEN_REDSTONE_MAX, GEN_REDSTONE_WEIGHT, GEN_REDSTONE_RMIN, GEN_REDSTONE_RMAX;
+    public static final ModConfigSpec.IntValue GEN_GOLD_MIN, GEN_GOLD_MAX, GEN_GOLD_WEIGHT, GEN_GOLD_RMIN, GEN_GOLD_RMAX;
+
     // --- distance bands ---
     public static final ModConfigSpec.IntValue BAND_INNER_MIN;
     public static final ModConfigSpec.IntValue BAND_INNER_MAX;
@@ -189,6 +204,75 @@ public final class CCIWorldConfig {
         REPLACEMENT_DEFAULT = builder
             .comment("Default behavior when no rule matches the current vein. Only \"leave_original\" is supported.")
             .define("replacement_default", "leave_original");
+
+        // v0.5 authoritative cluster generator
+        builder.push("authoritative_generator");
+        AUTHORITATIVE_GENERATION_ENABLED = builder
+            .comment("Enable the v0.5 authoritative cluster generator. When true, CCI World decides every chunk's final OreData (including no-vein).")
+            .define("authoritative_generation_enabled", true);
+
+        GEN_CHUNKS_PER_TICK = builder
+            .comment("Maximum chunks the v0.5 cluster generator processes per server tick.")
+            .defineInRange("policy_chunks_per_tick", 6, 1, 64);
+
+        MAX_PENDING_GEN_JOBS = builder
+            .comment("Maximum pending chunk jobs in the cluster generator queue. Incoming chunk loads are silently dropped when full.")
+            .defineInRange("max_pending_policy_jobs", 8192, 1, 65536);
+
+        GEN_CELL_SIZE_CHUNKS = builder
+            .comment("Side length, in chunks, of each cluster cell. Each cell deterministically contains at most one cluster.")
+            .defineInRange("cell_size_chunks", 8, 1, 64);
+
+        GEN_NO_VEIN_CHANCE = builder
+            .comment("Probability [0..1] that a cell has NO cluster at all (forced no-vein for the whole cell).")
+            .defineInRange("no_vein_chance", 0.30, 0.0, 1.0);
+
+        builder.push("rings");
+        builder.push("coal");
+        GEN_COAL_MIN    = builder.defineInRange("min_distance_blocks", 0,    0, Integer.MAX_VALUE);
+        GEN_COAL_MAX    = builder.defineInRange("max_distance_blocks", 1200, 0, Integer.MAX_VALUE);
+        GEN_COAL_WEIGHT = builder.defineInRange("weight",              50,   0, Integer.MAX_VALUE);
+        GEN_COAL_RMIN   = builder.defineInRange("radius_min_blocks",   24,   1, 4096);
+        GEN_COAL_RMAX   = builder.defineInRange("radius_max_blocks",   64,   1, 4096);
+        builder.pop();
+        builder.push("iron");
+        GEN_IRON_MIN    = builder.defineInRange("min_distance_blocks", 0,    0, Integer.MAX_VALUE);
+        GEN_IRON_MAX    = builder.defineInRange("max_distance_blocks", 1200, 0, Integer.MAX_VALUE);
+        GEN_IRON_WEIGHT = builder.defineInRange("weight",              40,   0, Integer.MAX_VALUE);
+        GEN_IRON_RMIN   = builder.defineInRange("radius_min_blocks",   24,   1, 4096);
+        GEN_IRON_RMAX   = builder.defineInRange("radius_max_blocks",   56,   1, 4096);
+        builder.pop();
+        builder.push("copper");
+        GEN_COPPER_MIN    = builder.defineInRange("min_distance_blocks", 0,    0, Integer.MAX_VALUE);
+        GEN_COPPER_MAX    = builder.defineInRange("max_distance_blocks", 1200, 0, Integer.MAX_VALUE);
+        GEN_COPPER_WEIGHT = builder.defineInRange("weight",              35,   0, Integer.MAX_VALUE);
+        GEN_COPPER_RMIN   = builder.defineInRange("radius_min_blocks",   20,   1, 4096);
+        GEN_COPPER_RMAX   = builder.defineInRange("radius_max_blocks",   48,   1, 4096);
+        builder.pop();
+        builder.push("zinc");
+        GEN_ZINC_MIN    = builder.defineInRange("min_distance_blocks", 400,  0, Integer.MAX_VALUE);
+        GEN_ZINC_MAX    = builder.defineInRange("max_distance_blocks", 2200, 0, Integer.MAX_VALUE);
+        GEN_ZINC_WEIGHT = builder.defineInRange("weight",              20,   0, Integer.MAX_VALUE);
+        GEN_ZINC_RMIN   = builder.defineInRange("radius_min_blocks",   16,   1, 4096);
+        GEN_ZINC_RMAX   = builder.defineInRange("radius_max_blocks",   40,   1, 4096);
+        builder.pop();
+        builder.push("redstone");
+        GEN_REDSTONE_MIN    = builder.defineInRange("min_distance_blocks", 700,  0, Integer.MAX_VALUE);
+        GEN_REDSTONE_MAX    = builder.defineInRange("max_distance_blocks", 3000, 0, Integer.MAX_VALUE);
+        GEN_REDSTONE_WEIGHT = builder.defineInRange("weight",              10,   0, Integer.MAX_VALUE);
+        GEN_REDSTONE_RMIN   = builder.defineInRange("radius_min_blocks",   12,   1, 4096);
+        GEN_REDSTONE_RMAX   = builder.defineInRange("radius_max_blocks",   32,   1, 4096);
+        builder.pop();
+        builder.push("gold");
+        GEN_GOLD_MIN    = builder.defineInRange("min_distance_blocks", 1200, 0, Integer.MAX_VALUE);
+        GEN_GOLD_MAX    = builder.defineInRange("max_distance_blocks", 4000, 0, Integer.MAX_VALUE);
+        GEN_GOLD_WEIGHT = builder.defineInRange("weight",              6,    0, Integer.MAX_VALUE);
+        GEN_GOLD_RMIN   = builder.defineInRange("radius_min_blocks",   12,   1, 4096);
+        GEN_GOLD_RMAX   = builder.defineInRange("radius_max_blocks",   28,   1, 4096);
+        builder.pop();
+        builder.pop(); // rings
+
+        builder.pop(); // authoritative_generator
 
         // Distance bands
         builder.push("band_inner");

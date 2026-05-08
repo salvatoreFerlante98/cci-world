@@ -1,0 +1,147 @@
+﻿Compiled from "ExtractorBlockEntity.java"
+public class com.tom.createores.block.entity.ExtractorBlockEntity extends com.tom.createores.block.entity.ExcavatingBlockEntityImpl<com.tom.createores.recipe.ExtractorRecipe> {
+  private com.tom.createores.block.entity.ExtractorBlockEntity$Tank fluidTankOut;
+
+  public com.tom.createores.block.entity.ExtractorBlockEntity(net.minecraft.world.level.block.entity.BlockEntityType<?>, net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState);
+    Code:
+         0: aload_0
+         1: aload_1
+         2: aload_2
+         3: aload_3
+         4: invokespecial #1                  // Method com/tom/createores/block/entity/ExcavatingBlockEntityImpl."<init>":(Lnet/minecraft/world/level/block/entity/BlockEntityType;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)V
+         7: aload_0
+         8: new           #7                  // class com/tom/createores/block/entity/ExtractorBlockEntity$Tank
+        11: dup
+        12: aload_0
+        13: invokespecial #9                  // Method com/tom/createores/block/entity/ExtractorBlockEntity$Tank."<init>":(Lcom/tom/createores/block/entity/ExtractorBlockEntity;)V
+        16: putfield      #12                 // Field fluidTankOut:Lcom/tom/createores/block/entity/ExtractorBlockEntity$Tank;
+        19: return
+
+  public <T> T getCaps(net.neoforged.neoforge.capabilities.BlockCapability<T, net.minecraft.core.Direction>, com.tom.createores.util.IOBlockType);
+    Code:
+         0: aload_2
+         1: getstatic     #18                 // Field com/tom/createores/util/IOBlockType.FLUID_OUT:Lcom/tom/createores/util/IOBlockType;
+         4: if_acmpne     19
+         7: aload_1
+         8: getstatic     #24                 // Field net/neoforged/neoforge/capabilities/Capabilities$FluidHandler.BLOCK:Lnet/neoforged/neoforge/capabilities/BlockCapability;
+        11: if_acmpne     19
+        14: aload_0
+        15: getfield      #12                 // Field fluidTankOut:Lcom/tom/createores/block/entity/ExtractorBlockEntity$Tank;
+        18: areturn
+        19: aload_0
+        20: aload_1
+        21: aload_2
+        22: invokespecial #30                 // Method com/tom/createores/block/entity/ExcavatingBlockEntityImpl.getCaps:(Lnet/neoforged/neoforge/capabilities/BlockCapability;Lcom/tom/createores/util/IOBlockType;)Ljava/lang/Object;
+        25: areturn
+
+  protected boolean canExtract();
+    Code:
+         0: aload_0
+         1: invokespecial #34                 // Method com/tom/createores/block/entity/ExcavatingBlockEntityImpl.canExtract:()Z
+         4: ifeq          53
+         7: aload_0
+         8: getfield      #12                 // Field fluidTankOut:Lcom/tom/createores/block/entity/ExtractorBlockEntity$Tank;
+        11: aload_0
+        12: getfield      #38                 // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        15: invokevirtual #42                 // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+        18: checkcast     #48                 // class com/tom/createores/recipe/ExtractorRecipe
+        21: invokevirtual #50                 // Method com/tom/createores/recipe/ExtractorRecipe.getOutput:()Lnet/neoforged/neoforge/fluids/FluidStack;
+        24: getstatic     #54                 // Field net/neoforged/neoforge/fluids/capability/IFluidHandler$FluidAction.SIMULATE:Lnet/neoforged/neoforge/fluids/capability/IFluidHandler$FluidAction;
+        27: invokevirtual #60                 // Method com/tom/createores/block/entity/ExtractorBlockEntity$Tank.fillInternal:(Lnet/neoforged/neoforge/fluids/FluidStack;Lnet/neoforged/neoforge/fluids/capability/IFluidHandler$FluidAction;)I
+        30: aload_0
+        31: getfield      #38                 // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+        34: invokevirtual #42                 // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+        37: checkcast     #48                 // class com/tom/createores/recipe/ExtractorRecipe
+        40: invokevirtual #50                 // Method com/tom/createores/recipe/ExtractorRecipe.getOutput:()Lnet/neoforged/neoforge/fluids/FluidStack;
+        43: invokevirtual #64                 // Method net/neoforged/neoforge/fluids/FluidStack.getAmount:()I
+        46: if_icmpne     53
+        49: iconst_1
+        50: goto          54
+        53: iconst_0
+        54: ireturn
+
+  protected void onFinished();
+    Code:
+         0: aload_0
+         1: getfield      #12                 // Field fluidTankOut:Lcom/tom/createores/block/entity/ExtractorBlockEntity$Tank;
+         4: aload_0
+         5: getfield      #38                 // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+         8: invokevirtual #42                 // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+        11: checkcast     #48                 // class com/tom/createores/recipe/ExtractorRecipe
+        14: invokevirtual #50                 // Method com/tom/createores/recipe/ExtractorRecipe.getOutput:()Lnet/neoforged/neoforge/fluids/FluidStack;
+        17: getstatic     #70                 // Field net/neoforged/neoforge/fluids/capability/IFluidHandler$FluidAction.EXECUTE:Lnet/neoforged/neoforge/fluids/capability/IFluidHandler$FluidAction;
+        20: invokevirtual #60                 // Method com/tom/createores/block/entity/ExtractorBlockEntity$Tank.fillInternal:(Lnet/neoforged/neoforge/fluids/FluidStack;Lnet/neoforged/neoforge/fluids/capability/IFluidHandler$FluidAction;)I
+        23: pop
+        24: aload_0
+        25: invokespecial #73                 // Method com/tom/createores/block/entity/ExcavatingBlockEntityImpl.onFinished:()V
+        28: return
+
+  protected void read(net.minecraft.nbt.CompoundTag, net.minecraft.core.HolderLookup$Provider, boolean);
+    Code:
+         0: aload_0
+         1: aload_1
+         2: aload_2
+         3: iload_3
+         4: invokespecial #77                 // Method com/tom/createores/block/entity/ExcavatingBlockEntityImpl.read:(Lnet/minecraft/nbt/CompoundTag;Lnet/minecraft/core/HolderLookup$Provider;Z)V
+         7: aload_0
+         8: getfield      #12                 // Field fluidTankOut:Lcom/tom/createores/block/entity/ExtractorBlockEntity$Tank;
+        11: aload_2
+        12: aload_1
+        13: ldc           #81                 // String tank
+        15: invokevirtual #83                 // Method net/minecraft/nbt/CompoundTag.getCompound:(Ljava/lang/String;)Lnet/minecraft/nbt/CompoundTag;
+        18: invokevirtual #89                 // Method com/tom/createores/block/entity/ExtractorBlockEntity$Tank.readFromNBT:(Lnet/minecraft/core/HolderLookup$Provider;Lnet/minecraft/nbt/CompoundTag;)Lnet/neoforged/neoforge/fluids/capability/templates/FluidTank;
+        21: pop
+        22: return
+
+  public void write(net.minecraft.nbt.CompoundTag, net.minecraft.core.HolderLookup$Provider, boolean);
+    Code:
+         0: aload_0
+         1: aload_1
+         2: aload_2
+         3: iload_3
+         4: invokespecial #93                 // Method com/tom/createores/block/entity/ExcavatingBlockEntityImpl.write:(Lnet/minecraft/nbt/CompoundTag;Lnet/minecraft/core/HolderLookup$Provider;Z)V
+         7: aload_1
+         8: ldc           #81                 // String tank
+        10: aload_0
+        11: getfield      #12                 // Field fluidTankOut:Lcom/tom/createores/block/entity/ExtractorBlockEntity$Tank;
+        14: aload_2
+        15: new           #84                 // class net/minecraft/nbt/CompoundTag
+        18: dup
+        19: invokespecial #96                 // Method net/minecraft/nbt/CompoundTag."<init>":()V
+        22: invokevirtual #98                 // Method com/tom/createores/block/entity/ExtractorBlockEntity$Tank.writeToNBT:(Lnet/minecraft/core/HolderLookup$Provider;Lnet/minecraft/nbt/CompoundTag;)Lnet/minecraft/nbt/CompoundTag;
+        25: invokevirtual #102                // Method net/minecraft/nbt/CompoundTag.put:(Ljava/lang/String;Lnet/minecraft/nbt/Tag;)Lnet/minecraft/nbt/Tag;
+        28: pop
+        29: return
+
+  public boolean addToGoggleTooltip(java.util.List<net.minecraft.network.chat.Component>, boolean);
+    Code:
+         0: aload_0
+         1: aload_1
+         2: iload_2
+         3: invokespecial #106                // Method com/tom/createores/block/entity/ExcavatingBlockEntityImpl.addToGoggleTooltip:(Ljava/util/List;Z)Z
+         6: pop
+         7: aload_1
+         8: ldc           #110                // String info.coe.extractor.output
+        10: invokestatic  #112                // InterfaceMethod net/minecraft/network/chat/Component.translatable:(Ljava/lang/String;)Lnet/minecraft/network/chat/MutableComponent;
+        13: invokestatic  #118                // Method com/tom/createores/util/TooltipUtil.forGoggles:(Ljava/util/List;Lnet/minecraft/network/chat/MutableComponent;)V
+        16: aload_0
+        17: aload_1
+        18: iload_2
+        19: aload_0
+        20: getfield      #12                 // Field fluidTankOut:Lcom/tom/createores/block/entity/ExtractorBlockEntity$Tank;
+        23: invokevirtual #124                // Method containedFluidTooltip:(Ljava/util/List;ZLnet/neoforged/neoforge/fluids/capability/IFluidHandler;)Z
+        26: pop
+        27: iconst_1
+        28: ireturn
+
+  protected net.minecraft.world.item.crafting.RecipeType<com.tom.createores.recipe.ExtractorRecipe> getRecipeType();
+    Code:
+         0: getstatic     #128                // Field com/tom/createores/CreateOreExcavation.EXTRACTING_RECIPES:Lcom/tom/createores/CreateOreExcavation$RecipeTypeGroup;
+         3: invokevirtual #134                // Method com/tom/createores/CreateOreExcavation$RecipeTypeGroup.getRecipeType:()Lnet/minecraft/world/item/crafting/RecipeType;
+         6: areturn
+
+  protected java.lang.String getTankInName();
+    Code:
+         0: ldc           #140                // String tankIn
+         2: areturn
+}

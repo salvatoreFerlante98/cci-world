@@ -1,0 +1,158 @@
+﻿Compiled from "DrillBlockEntity.java"
+public class com.tom.createores.block.entity.DrillBlockEntity extends com.tom.createores.block.entity.ExcavatingBlockEntityImpl<com.tom.createores.recipe.DrillingRecipe> {
+  private com.tom.createores.util.QueueInventory inventory;
+
+  public com.tom.createores.block.entity.DrillBlockEntity(net.minecraft.world.level.block.entity.BlockEntityType<?>, net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState);
+    Code:
+         0: aload_0
+         1: aload_1
+         2: aload_2
+         3: aload_3
+         4: invokespecial #1                  // Method com/tom/createores/block/entity/ExcavatingBlockEntityImpl."<init>":(Lnet/minecraft/world/level/block/entity/BlockEntityType;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)V
+         7: aload_0
+         8: new           #7                  // class com/tom/createores/util/QueueInventory
+        11: dup
+        12: invokespecial #9                  // Method com/tom/createores/util/QueueInventory."<init>":()V
+        15: putfield      #12                 // Field inventory:Lcom/tom/createores/util/QueueInventory;
+        18: return
+
+  public <T> T getCaps(net.neoforged.neoforge.capabilities.BlockCapability<T, net.minecraft.core.Direction>, com.tom.createores.util.IOBlockType);
+    Code:
+         0: aload_2
+         1: getstatic     #18                 // Field com/tom/createores/util/IOBlockType.ITEM_OUT:Lcom/tom/createores/util/IOBlockType;
+         4: if_acmpne     22
+         7: aload_1
+         8: getstatic     #24                 // Field net/neoforged/neoforge/capabilities/Capabilities$ItemHandler.BLOCK:Lnet/neoforged/neoforge/capabilities/BlockCapability;
+        11: if_acmpne     22
+        14: aload_0
+        15: getfield      #12                 // Field inventory:Lcom/tom/createores/util/QueueInventory;
+        18: invokevirtual #30                 // Method com/tom/createores/util/QueueInventory.asCap:()Ljava/lang/Object;
+        21: areturn
+        22: aload_0
+        23: aload_1
+        24: aload_2
+        25: invokespecial #34                 // Method com/tom/createores/block/entity/ExcavatingBlockEntityImpl.getCaps:(Lnet/neoforged/neoforge/capabilities/BlockCapability;Lcom/tom/createores/util/IOBlockType;)Ljava/lang/Object;
+        28: areturn
+
+  protected void read(net.minecraft.nbt.CompoundTag, net.minecraft.core.HolderLookup$Provider, boolean);
+    Code:
+         0: aload_0
+         1: aload_1
+         2: aload_2
+         3: iload_3
+         4: invokespecial #38                 // Method com/tom/createores/block/entity/ExcavatingBlockEntityImpl.read:(Lnet/minecraft/nbt/CompoundTag;Lnet/minecraft/core/HolderLookup$Provider;Z)V
+         7: iload_3
+         8: ifne          27
+        11: aload_0
+        12: getfield      #12                 // Field inventory:Lcom/tom/createores/util/QueueInventory;
+        15: aload_1
+        16: ldc           #42                 // String inv
+        18: bipush        10
+        20: invokevirtual #46                 // Method net/minecraft/nbt/CompoundTag.getList:(Ljava/lang/String;I)Lnet/minecraft/nbt/ListTag;
+        23: aload_2
+        24: invokevirtual #52                 // Method com/tom/createores/util/QueueInventory.load:(Lnet/minecraft/nbt/ListTag;Lnet/minecraft/core/HolderLookup$Provider;)V
+        27: return
+
+  public void write(net.minecraft.nbt.CompoundTag, net.minecraft.core.HolderLookup$Provider, boolean);
+    Code:
+         0: aload_0
+         1: aload_1
+         2: aload_2
+         3: iload_3
+         4: invokespecial #56                 // Method com/tom/createores/block/entity/ExcavatingBlockEntityImpl.write:(Lnet/minecraft/nbt/CompoundTag;Lnet/minecraft/core/HolderLookup$Provider;Z)V
+         7: iload_3
+         8: ifne          26
+        11: aload_1
+        12: ldc           #42                 // String inv
+        14: aload_0
+        15: getfield      #12                 // Field inventory:Lcom/tom/createores/util/QueueInventory;
+        18: aload_2
+        19: invokevirtual #59                 // Method com/tom/createores/util/QueueInventory.toTag:(Lnet/minecraft/core/HolderLookup$Provider;)Lnet/minecraft/nbt/ListTag;
+        22: invokevirtual #63                 // Method net/minecraft/nbt/CompoundTag.put:(Ljava/lang/String;Lnet/minecraft/nbt/Tag;)Lnet/minecraft/nbt/Tag;
+        25: pop
+        26: return
+
+  public void dropInv();
+    Code:
+         0: aload_0
+         1: invokespecial #67                 // Method com/tom/createores/block/entity/ExcavatingBlockEntityImpl.dropInv:()V
+         4: iconst_0
+         5: istore_1
+         6: iload_1
+         7: aload_0
+         8: getfield      #12                 // Field inventory:Lcom/tom/createores/util/QueueInventory;
+        11: invokevirtual #70                 // Method com/tom/createores/util/QueueInventory.getSlots:()I
+        14: if_icmpge     35
+        17: aload_0
+        18: aload_0
+        19: getfield      #12                 // Field inventory:Lcom/tom/createores/util/QueueInventory;
+        22: iload_1
+        23: invokevirtual #74                 // Method com/tom/createores/util/QueueInventory.getStackInSlot:(I)Lnet/minecraft/world/item/ItemStack;
+        26: invokevirtual #78                 // Method dropItemStack:(Lnet/minecraft/world/item/ItemStack;)V
+        29: iinc          1, 1
+        32: goto          6
+        35: return
+
+  protected boolean canExtract();
+    Code:
+         0: aload_0
+         1: getfield      #12                 // Field inventory:Lcom/tom/createores/util/QueueInventory;
+         4: invokevirtual #82                 // Method com/tom/createores/util/QueueInventory.hasSpace:()Z
+         7: ifeq          21
+        10: aload_0
+        11: invokespecial #86                 // Method com/tom/createores/block/entity/ExcavatingBlockEntityImpl.canExtract:()Z
+        14: ifeq          21
+        17: iconst_1
+        18: goto          22
+        21: iconst_0
+        22: ireturn
+
+  protected void onFinished();
+    Code:
+         0: aload_0
+         1: getfield      #89                 // Field current:Lnet/minecraft/world/item/crafting/RecipeHolder;
+         4: invokevirtual #93                 // Method net/minecraft/world/item/crafting/RecipeHolder.value:()Lnet/minecraft/world/item/crafting/Recipe;
+         7: checkcast     #99                 // class com/tom/createores/recipe/DrillingRecipe
+        10: invokevirtual #101                // Method com/tom/createores/recipe/DrillingRecipe.getOutput:()Lnet/minecraft/core/NonNullList;
+        13: invokevirtual #105                // Method net/minecraft/core/NonNullList.stream:()Ljava/util/stream/Stream;
+        16: aload_0
+        17: invokedynamic #111,  0            // InvokeDynamic #0:apply:(Lcom/tom/createores/block/entity/DrillBlockEntity;)Ljava/util/function/Function;
+        22: invokeinterface #115,  2          // InterfaceMethod java/util/stream/Stream.map:(Ljava/util/function/Function;)Ljava/util/stream/Stream;
+        27: invokedynamic #121,  0            // InvokeDynamic #1:test:()Ljava/util/function/Predicate;
+        32: invokeinterface #125,  2          // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+        37: aload_0
+        38: getfield      #12                 // Field inventory:Lcom/tom/createores/util/QueueInventory;
+        41: dup
+        42: invokestatic  #129                // Method java/util/Objects.requireNonNull:(Ljava/lang/Object;)Ljava/lang/Object;
+        45: pop
+        46: invokedynamic #135,  0            // InvokeDynamic #2:accept:(Lcom/tom/createores/util/QueueInventory;)Ljava/util/function/Consumer;
+        51: invokeinterface #139,  2          // InterfaceMethod java/util/stream/Stream.forEach:(Ljava/util/function/Consumer;)V
+        56: aload_0
+        57: invokespecial #143                // Method com/tom/createores/block/entity/ExcavatingBlockEntityImpl.onFinished:()V
+        60: return
+
+  protected net.minecraft.world.item.crafting.RecipeType<com.tom.createores.recipe.DrillingRecipe> getRecipeType();
+    Code:
+         0: getstatic     #146                // Field com/tom/createores/CreateOreExcavation.DRILLING_RECIPES:Lcom/tom/createores/CreateOreExcavation$RecipeTypeGroup;
+         3: invokevirtual #152                // Method com/tom/createores/CreateOreExcavation$RecipeTypeGroup.getRecipeType:()Lnet/minecraft/world/item/crafting/RecipeType;
+         6: areturn
+
+  private static boolean lambda$onFinished$1(net.minecraft.world.item.ItemStack);
+    Code:
+         0: aload_0
+         1: invokevirtual #158                // Method net/minecraft/world/item/ItemStack.isEmpty:()Z
+         4: ifne          11
+         7: iconst_1
+         8: goto          12
+        11: iconst_0
+        12: ireturn
+
+  private net.minecraft.world.item.ItemStack lambda$onFinished$0(com.simibubi.create.content.processing.recipe.ProcessingOutput);
+    Code:
+         0: aload_1
+         1: aload_0
+         2: getfield      #163                // Field level:Lnet/minecraft/world/level/Level;
+         5: getfield      #167                // Field net/minecraft/world/level/Level.random:Lnet/minecraft/util/RandomSource;
+         8: invokevirtual #173                // Method com/simibubi/create/content/processing/recipe/ProcessingOutput.rollOutput:(Lnet/minecraft/util/RandomSource;)Lnet/minecraft/world/item/ItemStack;
+        11: areturn
+}
